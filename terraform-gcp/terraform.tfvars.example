@@ -1,0 +1,97 @@
+# ==========================================================================
+#  Terraform Variables Example
+# --------------------------------------------------------------------------
+#  Copy this file to terraform.tfvars and update the values
+# ==========================================================================
+
+# ------------------------------------
+#  GCP Configuration
+# ------------------------------------
+project_id = "your-gcp-project-id"
+gcp_region = "us-central1"
+gcp_zone   = "us-central1-a"
+
+# ------------------------------------
+#  Environment
+# ------------------------------------
+# Current workspace will be used, but you can override specific environment settings
+department = "devops"
+
+# ------------------------------------
+#  Compute Engine Configuration
+# ------------------------------------
+machine_type     = "e2-medium"        # e2-micro, e2-small, e2-medium, e2-standard-2, etc.
+instance_count   = 2                  # Number of instances
+disk_size        = 20                 # Boot disk size in GB
+preemptible      = false              # Use preemptible instances for cost savings
+
+# ------------------------------------
+#  Docker Configuration (FrankenPHP)
+# ------------------------------------
+docker_image = "ghcr.io/your-username/your-laravel-app:latest"
+
+# GitHub Container Registry Authentication
+# Required if using private repository
+github_username = "your-github-username"
+github_token    = "ghp_your_github_personal_access_token"
+
+# FrankenPHP specific configuration
+frankenphp_port = 80  # Port that FrankenPHP serves on
+
+# ------------------------------------
+#  Database Configuration
+# ------------------------------------
+database_version    = "MYSQL_8_0"     # MYSQL_5_7, MYSQL_8_0, POSTGRES_13, etc.
+database_tier       = "db-f1-micro"   # db-f1-micro, db-g1-small, db-n1-standard-1, etc.
+database_disk_size  = 20              # Disk size in GB
+database_name       = "laravel_app"
+database_user       = "laravel_user"
+# database_password = "your-secure-password"  # Leave empty for auto-generation
+# root_password     = "your-secure-root-password"  # Leave empty for auto-generation
+
+# ------------------------------------
+#  High Availability (Production)
+# ------------------------------------
+availability_type = "ZONAL"           # ZONAL or REGIONAL
+enable_replica    = false             # Enable read replica
+
+# ------------------------------------
+#  SSL/Security
+# ------------------------------------
+require_ssl = true
+
+# Authorized networks for database access
+# Be more restrictive in production
+authorized_networks = [
+  {
+    name  = "all-access"
+    value = "0.0.0.0/0"
+  }
+  # {
+  #   name  = "office-network"
+  #   value = "203.0.113.0/24"
+  # }
+]
+
+# ------------------------------------
+#  HTTPS Configuration (Multi-tenant)
+# ------------------------------------
+enable_https = true
+
+# Multi-tenant domain configuration
+base_domain    = "yourdomain.com"        # Your domain hosted in Cloudflare
+app_subdomain  = "app"                   # Creates app.yourdomain.com
+wildcard_ssl   = true                    # Enables *.app.yourdomain.com for tenants
+
+# Manual domain list (if not using base_domain)
+# domain_names = ["app.yourdomain.com", "*.app.yourdomain.com"]
+
+# Tenant routing
+tenant_routing_enabled = true
+
+# ------------------------------------
+#  Laravel Application
+# ------------------------------------
+app_env   = "production"              # local, staging, production
+app_debug = false                     # true for development
+# app_key = "base64:your-app-key"     # Generate with: php artisan key:generate --show
