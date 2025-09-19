@@ -1,7 +1,7 @@
 # ==========================================================================
 #  cert-manager Configuration for Wildcard SSL Certificates
 # --------------------------------------------------------------------------
-#  Sets up cert-manager with Let's Encrypt for *.zyoshu.gig.codes
+#  Sets up cert-manager with Let's Encrypt for wildcard certificates
 # ==========================================================================
 
 # --------------------------------------------------------------------------
@@ -82,38 +82,28 @@ resource "time_sleep" "wait_for_cert_manager" {
 }
 
 # --------------------------------------------------------------------------
-#  Let's Encrypt ClusterIssuer for Wildcard Certificates
+#  Let's Encrypt ClusterIssuer for Wildcard Certificates (using kubectl)
 # --------------------------------------------------------------------------
-resource "kubernetes_manifest" "letsencrypt_wildcard_issuer" {
-  manifest = {
-    apiVersion = "cert-manager.io/v1"
-    kind       = "ClusterIssuer"
-    metadata = {
-      name = "letsencrypt-wildcard"
-    }
-    spec = {
-      acme = {
-        server = "https://acme-v02.api.letsencrypt.org/directory"
-        email  = var.letsencrypt_email
-        privateKeySecretRef = {
-          name = "letsencrypt-wildcard-key"
-        }
-        solvers = [
-          {
-            dns01 = {
-              cloudDNS = {
-                project = var.project_id
-                serviceAccountSecretRef = {
-                  name = kubernetes_secret.cert_manager_dns_key.metadata[0].name
-                  key  = "key.json"
-                }
-              }
-            }
-          }
-        ]
-      }
-    }
-  }
+resource "kubectl_manifest" "letsencrypt_wildcard_issuer" {
+  yaml_body = <<-YAML
+    apiVersion: cert-manager.io/v1
+    kind: ClusterIssuer
+    metadata:
+      name: letsencrypt-wildcard
+    spec:
+      acme:
+        server: https://acme-v02.api.letsencrypt.org/directory
+        email: ${var.letsencrypt_email}
+        privateKeySecretRef:
+          name: letsencrypt-wildcard-key
+        solvers:
+        - dns01:
+            cloudDNS:
+              project: ${var.project_id}
+              serviceAccountSecretRef:
+                name: ${kubernetes_secret.cert_manager_dns_key.metadata[0].name}
+                key: key.json
+  YAML
 
   depends_on = [
     time_sleep.wait_for_cert_manager,
@@ -122,31 +112,27 @@ resource "kubernetes_manifest" "letsencrypt_wildcard_issuer" {
 }
 
 # --------------------------------------------------------------------------
-#  Wildcard Certificate for *.zyoshu.gig.codes
+#  Wildcard Certificate (using kubectl)
 # --------------------------------------------------------------------------
-resource "kubernetes_manifest" "wildcard_certificate" {
-  manifest = {
-    apiVersion = "cert-manager.io/v1"
-    kind       = "Certificate"
-    metadata = {
-      name      = "wildcard-zyoshu-tls"
-      namespace = kubernetes_namespace.laravel_app.metadata[0].name
-    }
-    spec = {
-      secretName = "wildcard-zyoshu-tls-secret"
-      issuerRef = {
-        name = "letsencrypt-wildcard"
-        kind = "ClusterIssuer"
-      }
-      dnsNames = [
-        "*.zyoshu.gig.codes",
-        "zyoshu.gig.codes"
-      ]
-    }
-  }
+resource "kubectl_manifest" "wildcard_certificate" {
+  yaml_body = <<-YAML
+    apiVersion: cert-manager.io/v1
+    kind: Certificate
+    metadata:
+      name: wildcard-${var.app_subdomain}-tls
+      namespace: ${kubernetes_namespace.laravel_app.metadata[0].name}
+    spec:
+      secretName: wildcard-${var.app_subdomain}-tls-secret
+      issuerRef:
+        name: letsencrypt-wildcard
+        kind: ClusterIssuer
+      dnsNames:
+      - "*.${var.app_subdomain}.${var.base_domain}"
+      - "${var.app_subdomain}.${var.base_domain}"
+  YAML
 
   depends_on = [
-    kubernetes_manifest.letsencrypt_wildcard_issuer,
+    kubectl_manifest.letsencrypt_wildcard_issuer,
     kubernetes_namespace.laravel_app,
     time_sleep.wait_for_cert_manager
   ]
