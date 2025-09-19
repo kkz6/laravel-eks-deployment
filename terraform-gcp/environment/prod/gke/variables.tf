@@ -258,3 +258,90 @@ variable "tfstate_prefix" {
   description = "Path prefix for .tfstate in Bucket"
   default     = "gke/terraform.tfstate"
 }
+
+# ------------------------------------
+#  Additional Variables from terraform.tfvars
+# ------------------------------------
+variable "database_version" {
+  type        = string
+  description = "Database version (not used in GKE module)"
+  default     = "MYSQL_8_0"
+}
+
+variable "database_tier" {
+  type        = string
+  description = "Database tier (not used in GKE module)"
+  default     = "db-f1-micro"
+}
+
+variable "database_disk_size" {
+  type        = number
+  description = "Database disk size (not used in GKE module)"
+  default     = 10
+}
+
+variable "database_disk_type" {
+  type        = string
+  description = "Database disk type (not used in GKE module)"
+  default     = "PD_HDD"
+}
+
+variable "database_name" {
+  type        = string
+  description = "Database name (not used in GKE module)"
+  default     = "laravel_app"
+}
+
+variable "database_user" {
+  type        = string
+  description = "Database user (not used in GKE module)"
+  default     = "laravel_user"
+}
+
+variable "availability_type" {
+  type        = string
+  description = "Database availability type (not used in GKE module)"
+  default     = "ZONAL"
+}
+
+variable "enable_replica" {
+  type        = bool
+  description = "Enable database replica (not used in GKE module)"
+  default     = false
+}
+
+variable "require_ssl" {
+  type        = bool
+  description = "Require SSL for database (not used in GKE module)"
+  default     = true
+}
+
+variable "enable_https" {
+  type        = bool
+  description = "Enable HTTPS (handled by ingress)"
+  default     = true
+}
+
+variable "wildcard_ssl" {
+  type        = bool
+  description = "Use wildcard SSL certificate for multi-tenant subdomains"
+  default     = true
+}
+
+variable "tenant_routing_enabled" {
+  type        = bool
+  description = "Enable tenant-based routing in application"
+  default     = true
+}
+
+variable "use_remote_state" {
+  type        = bool
+  description = "Use remote state (not used in simplified structure)"
+  default     = false
+}
+
+variable "frankenphp_port" {
+  type        = number
+  description = "Port that FrankenPHP serves on"
+  default     = 8000
+}
