@@ -339,6 +339,12 @@ variable "letsencrypt_email" {
   type        = string
 }
 
+variable "cloudflare_api_token" {
+  description = "Cloudflare API token for DNS-01 challenge (needs Zone:Read and DNS:Edit permissions)"
+  type        = string
+  sensitive   = true
+}
+
 variable "enable_https" {
   type        = bool
   description = "Enable HTTPS"

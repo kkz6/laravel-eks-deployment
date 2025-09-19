@@ -645,14 +645,21 @@ resource "kubernetes_ingress_v1" "laravel_ingress" {
     annotations = {
       "kubernetes.io/ingress.class"                 = "gce"
       "kubernetes.io/ingress.global-static-ip-name" = "laravel-ip-${var.environment[local.env]}"
-      "networking.gke.io/managed-certificates"      = google_compute_managed_ssl_certificate.laravel_ssl_cert.name
+      "cert-manager.io/cluster-issuer"              = "letsencrypt-prod"
       "kubernetes.io/ingress.allow-http"            = "true"
-      "nginx.ingress.kubernetes.io/rewrite-target"  = "/"
       "nginx.ingress.kubernetes.io/ssl-redirect"    = "true"
     }
   }
 
   spec {
+    tls {
+      hosts = [
+        "${var.app_subdomain}.${var.base_domain}",
+        "*.${var.app_subdomain}.${var.base_domain}"
+      ]
+      secret_name = "wildcard-${var.app_subdomain}-tls-secret"
+    }
+
     rule {
       host = "${var.app_subdomain}.${var.base_domain}"
       http {
@@ -691,29 +698,29 @@ resource "kubernetes_ingress_v1" "laravel_ingress" {
   }
 
   depends_on = [
-    kubernetes_service.laravel_http_service,
-    google_compute_managed_ssl_certificate.laravel_ssl_cert
+    kubernetes_service.laravel_http_service
   ]
 }
 
 # --------------------------------------------------------------------------
 #  Managed SSL Certificate (using Google Cloud resource instead of k8s manifest)
 # --------------------------------------------------------------------------
-resource "google_compute_managed_ssl_certificate" "laravel_ssl_cert" {
-  name = "laravel-ssl-cert-${var.environment[local.env]}"
-
-  managed {
-    domains = [
-      "${var.app_subdomain}.${var.base_domain}"
-      # Note: Wildcard domains not supported by Google Managed Certificates
-      # Use Cloudflare SSL for wildcard support
-    ]
-  }
-
-  lifecycle {
-    create_before_destroy = true
-  }
-}
+# Commented out - Using cert-manager with Let's Encrypt instead
+# resource "google_compute_managed_ssl_certificate" "laravel_ssl_cert" {
+#   name = "laravel-ssl-cert-${var.environment[local.env]}"
+#
+#   managed {
+#     domains = [
+#       "${var.app_subdomain}.${var.base_domain}"
+#       # Note: Wildcard domains not supported by Google Managed Certificates
+#       # Use Cloudflare SSL for wildcard support
+#     ]
+#   }
+#
+#   lifecycle {
+#     create_before_destroy = true
+#   }
+# }
 
 # --------------------------------------------------------------------------
 #  Global Static IP for Ingress

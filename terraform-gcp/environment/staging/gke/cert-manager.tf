@@ -1,7 +1,7 @@
 # ==========================================================================
 #  cert-manager Configuration for Wildcard SSL Certificates
 # --------------------------------------------------------------------------
-#  Sets up cert-manager with Let's Encrypt for wildcard certificates
+#  Sets up cert-manager with Let's Encrypt using Cloudflare DNS-01 challenge
 # ==========================================================================
 
 # --------------------------------------------------------------------------
@@ -36,37 +36,16 @@ resource "helm_release" "cert_manager" {
 }
 
 # --------------------------------------------------------------------------
-#  Service Account for Cloud DNS Access
+#  Kubernetes Secret for Cloudflare API Token
 # --------------------------------------------------------------------------
-resource "google_service_account" "cert_manager_dns" {
-  account_id   = "cert-manager-dns-${var.environment[local.env]}"
-  display_name = "cert-manager DNS Service Account"
-  description  = "Service account for cert-manager to manage Cloud DNS for Let's Encrypt"
-}
-
-# Grant Cloud DNS admin permissions
-resource "google_project_iam_member" "cert_manager_dns_admin" {
-  project = var.project_id
-  role    = "roles/dns.admin"
-  member  = "serviceAccount:${google_service_account.cert_manager_dns.email}"
-}
-
-# Create service account key
-resource "google_service_account_key" "cert_manager_dns_key" {
-  service_account_id = google_service_account.cert_manager_dns.name
-}
-
-# --------------------------------------------------------------------------
-#  Kubernetes Secret for Service Account Key
-# --------------------------------------------------------------------------
-resource "kubernetes_secret" "cert_manager_dns_key" {
+resource "kubernetes_secret" "cloudflare_api_token" {
   metadata {
-    name      = "clouddns-dns01-solver-svc-acct"
+    name      = "cloudflare-api-token-secret"
     namespace = "cert-manager"
   }
 
   data = {
-    "key.json" = base64decode(google_service_account_key.cert_manager_dns_key.private_key)
+    "api-token" = var.cloudflare_api_token
   }
 
   depends_on = [helm_release.cert_manager]
@@ -82,37 +61,65 @@ resource "time_sleep" "wait_for_cert_manager" {
 }
 
 # --------------------------------------------------------------------------
-#  Let's Encrypt ClusterIssuer for Wildcard Certificates (using kubectl)
+#  Let's Encrypt ClusterIssuer with Cloudflare DNS-01 - Production
 # --------------------------------------------------------------------------
-resource "kubectl_manifest" "letsencrypt_wildcard_issuer" {
+resource "kubectl_manifest" "letsencrypt_prod_issuer" {
   yaml_body = <<-YAML
     apiVersion: cert-manager.io/v1
     kind: ClusterIssuer
     metadata:
-      name: letsencrypt-wildcard
+      name: letsencrypt-prod
     spec:
       acme:
         server: https://acme-v02.api.letsencrypt.org/directory
         email: ${var.letsencrypt_email}
         privateKeySecretRef:
-          name: letsencrypt-wildcard-key
+          name: letsencrypt-prod-key
         solvers:
         - dns01:
-            cloudDNS:
-              project: ${var.project_id}
-              serviceAccountSecretRef:
-                name: ${kubernetes_secret.cert_manager_dns_key.metadata[0].name}
-                key: key.json
+            cloudflare:
+              apiTokenSecretRef:
+                name: ${kubernetes_secret.cloudflare_api_token.metadata[0].name}
+                key: api-token
   YAML
 
   depends_on = [
     time_sleep.wait_for_cert_manager,
-    kubernetes_secret.cert_manager_dns_key
+    kubernetes_secret.cloudflare_api_token
   ]
 }
 
 # --------------------------------------------------------------------------
-#  Wildcard Certificate (using kubectl)
+#  Let's Encrypt ClusterIssuer with Cloudflare DNS-01 - Staging (for testing)
+# --------------------------------------------------------------------------
+resource "kubectl_manifest" "letsencrypt_staging_issuer" {
+  yaml_body = <<-YAML
+    apiVersion: cert-manager.io/v1
+    kind: ClusterIssuer
+    metadata:
+      name: letsencrypt-staging
+    spec:
+      acme:
+        server: https://acme-staging-v02.api.letsencrypt.org/directory
+        email: ${var.letsencrypt_email}
+        privateKeySecretRef:
+          name: letsencrypt-staging-key
+        solvers:
+        - dns01:
+            cloudflare:
+              apiTokenSecretRef:
+                name: ${kubernetes_secret.cloudflare_api_token.metadata[0].name}
+                key: api-token
+  YAML
+
+  depends_on = [
+    time_sleep.wait_for_cert_manager,
+    kubernetes_secret.cloudflare_api_token
+  ]
+}
+
+# --------------------------------------------------------------------------
+#  Wildcard Certificate for *.subdomain.domain.com
 # --------------------------------------------------------------------------
 resource "kubectl_manifest" "wildcard_certificate" {
   yaml_body = <<-YAML
@@ -124,16 +131,30 @@ resource "kubectl_manifest" "wildcard_certificate" {
     spec:
       secretName: wildcard-${var.app_subdomain}-tls-secret
       issuerRef:
-        name: letsencrypt-wildcard
+        name: letsencrypt-prod
         kind: ClusterIssuer
+      commonName: '*.${var.app_subdomain}.${var.base_domain}'
       dnsNames:
-      - "*.${var.app_subdomain}.${var.base_domain}"
-      - "${var.app_subdomain}.${var.base_domain}"
+      - '*.${var.app_subdomain}.${var.base_domain}'
+      - '${var.app_subdomain}.${var.base_domain}'
   YAML
 
   depends_on = [
-    kubectl_manifest.letsencrypt_wildcard_issuer,
+    kubectl_manifest.letsencrypt_prod_issuer,
     kubernetes_namespace.laravel_app,
     time_sleep.wait_for_cert_manager
   ]
 }
+
+# --------------------------------------------------------------------------
+#  Instructions for creating Cloudflare API Token:
+# --------------------------------------------------------------------------
+# 1. Go to Cloudflare Dashboard > My Profile > API Tokens
+# 2. Click "Create Token"
+# 3. Use "Custom token" template with these permissions:
+#    - Zone > DNS > Edit
+#    - Zone > Zone > Read
+# 4. Zone Resources: Include > Specific zone > your-domain.com
+# 5. Create token and add it to terraform.tfvars:
+#    cloudflare_api_token = "your-token-here"
+# --------------------------------------------------------------------------
