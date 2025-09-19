@@ -90,10 +90,9 @@ check_requirements() {
 deploy_terraform_state() {
     echo -e "${YELLOW}Setting up Terraform state...${NC}"
     
-    cd environment/providers/gcp/infra/tfstate
+    cd environment/$ENVIRONMENT/tfstate
     
     terraform init
-    terraform workspace select "$ENVIRONMENT" 2>/dev/null || terraform workspace new "$ENVIRONMENT"
     
     if [ "$ACTION" != "destroy" ]; then
         if [ "$AUTO_APPROVE" = true ]; then
@@ -110,10 +109,9 @@ deploy_terraform_state() {
 deploy_cloud_sql() {
     echo -e "${YELLOW}Deploying Cloud SQL database...${NC}"
     
-    cd environment/providers/gcp/infra/resources/cloud-sql
+    cd environment/$ENVIRONMENT/cloud-sql
     
     terraform init
-    terraform workspace select "$ENVIRONMENT" 2>/dev/null || terraform workspace new "$ENVIRONMENT"
     
     case $ACTION in
         plan)
@@ -145,7 +143,7 @@ deploy_gke_and_redis() {
     # Get database connection info from Cloud SQL
     if [ "$ACTION" = "apply" ]; then
         echo -e "${CYAN}Getting database connection info...${NC}"
-        cd environment/providers/gcp/infra/resources/cloud-sql
+        cd environment/$ENVIRONMENT/cloud-sql
         DB_HOST=$(terraform output -raw database_host 2>/dev/null || echo "")
         DB_PASSWORD=$(terraform output -raw database_password 2>/dev/null || echo "")
         DB_USER=$(terraform output -raw database_user 2>/dev/null || echo "")
@@ -156,22 +154,24 @@ deploy_gke_and_redis() {
             echo -e "${GREEN}✓ Database info retrieved: $DB_HOST${NC}"
             DB_VARS="-var=db_host=$DB_HOST -var=db_password=$DB_PASSWORD -var=db_user=$DB_USER -var=db_name=$DB_NAME"
         else
-            echo -e "${YELLOW}⚠ Database info not available - using defaults${NC}"
+            echo -e "${YELLOW}⚠ Database info not available - using values from terraform.tfvars${NC}"
             DB_VARS=""
         fi
     else
         DB_VARS=""
     fi
     
-    cd environment/providers/gcp/infra/resources/gke
+    cd environment/$ENVIRONMENT/gke
     
     terraform init
-    terraform workspace select "$ENVIRONMENT" 2>/dev/null || terraform workspace new "$ENVIRONMENT"
     
-    # Check if terraform.tfvars exists for additional variables
+    # Use terraform.tfvars from the root directory (simple path now)
     TERRAFORM_VARS="-var=project_id=$PROJECT_ID $DB_VARS"
-    if [ -f "../../../../terraform.tfvars" ]; then
-        TERRAFORM_VARS="$TERRAFORM_VARS -var-file=../../../../terraform.tfvars"
+    if [ -f "../../../terraform.tfvars" ]; then
+        TERRAFORM_VARS="$TERRAFORM_VARS -var-file=../../../terraform.tfvars"
+        echo -e "${GREEN}✓ Using terraform.tfvars with your custom values${NC}"
+    else
+        echo -e "${YELLOW}⚠ terraform.tfvars not found - using default values${NC}"
     fi
     
     case $ACTION in
@@ -217,7 +217,7 @@ configure_kubectl() {
         export PATH="$GCLOUD_SDK_PATH/bin:$PATH"
     fi
     
-    cd environment/providers/gcp/infra/resources/gke
+    cd environment/$ENVIRONMENT/gke
     
     # Get cluster credentials
     CLUSTER_NAME=$(terraform output -raw cluster_name)
@@ -248,16 +248,17 @@ show_outputs() {
     echo -e "${BLUE}============================================${NC}"
     
     # Get database info
-    cd environment/providers/gcp/infra/resources/cloud-sql
+    cd environment/$ENVIRONMENT/cloud-sql
     DB_HOST=$(terraform output -raw database_host 2>/dev/null || echo "Not available")
     DB_NAME=$(terraform output -raw database_name 2>/dev/null || echo "Not available")
     cd - > /dev/null
     
     # Get GKE and Redis info
-    cd environment/providers/gcp/infra/resources/gke
+    cd environment/$ENVIRONMENT/gke
     CLUSTER_NAME=$(terraform output -raw cluster_name 2>/dev/null || echo "Not available")
     REDIS_IP=$(terraform output -raw redis_internal_ip 2>/dev/null || echo "Not available")
     KUBECTL_CMD=$(terraform output -raw kubectl_config_command 2>/dev/null || echo "Not available")
+    INGRESS_IP=$(terraform output -raw ingress_ip 2>/dev/null || echo "Not available")
     cd - > /dev/null
     
     echo -e "${CYAN}Infrastructure:${NC}"

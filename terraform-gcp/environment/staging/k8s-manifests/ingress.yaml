@@ -1,0 +1,72 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: laravel-ingress
+  namespace: laravel-app
+  labels:
+    app: laravel-ingress
+  annotations:
+    # Use Google Cloud Load Balancer
+    kubernetes.io/ingress.class: "gce"
+    kubernetes.io/ingress.global-static-ip-name: "laravel-ip-staging"
+
+    # SSL configuration
+    networking.gke.io/managed-certificates: "laravel-ssl-cert"
+    kubernetes.io/ingress.allow-http: "true"
+
+    # Multi-tenant configuration
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+
+    # Security headers
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      add_header X-Frame-Options "SAMEORIGIN" always;
+      add_header X-XSS-Protection "1; mode=block" always;
+      add_header X-Content-Type-Options "nosniff" always;
+      add_header Referrer-Policy "no-referrer-when-downgrade" always;
+spec:
+  rules:
+    # Main application domain
+    - host: app.zyoshu.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: laravel-http-service
+                port:
+                  number: 80
+
+    # Wildcard for tenant subdomains
+    - host: "*.app.zyoshu.com"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: laravel-http-service
+                port:
+                  number: 80
+
+---
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: laravel-ssl-cert
+  namespace: laravel-app
+spec:
+  domains:
+    - app.zyoshu.com
+    - "*.app.zyoshu.com"
+
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: github-registry-secret
+  namespace: laravel-app
+type: kubernetes.io/dockerconfigjson
+data:
+  .dockerconfigjson: ewogICJhdXRocyI6IHsKICAgICJnaGNyLmlvIjogewogICAgICAidXNlcm5hbWUiOiAiUkVQTEFDRV9XSVRIX0dJVEhVQl9VU0VSTkFNRSIsCiAgICAgICJwYXNzd29yZCI6ICJSRVBMQUNFX1dJVEhfR0lUSFVCX1RPS0VOIiwKICAgICAgImF1dGgiOiAiUkVQTEFDRV9XSVRIX0JBU0U2NF9BVVRI" gICAgfQogIH0KfQ==

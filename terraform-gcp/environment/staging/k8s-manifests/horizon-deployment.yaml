@@ -1,0 +1,99 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: laravel-horizon
+  namespace: laravel-app
+  labels:
+    app: laravel-horizon
+    component: worker
+    mode: horizon
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: laravel-horizon
+      mode: horizon
+  template:
+    metadata:
+      labels:
+        app: laravel-horizon
+        mode: horizon
+        component: worker
+    spec:
+      imagePullSecrets:
+        - name: github-registry-secret
+      containers:
+        - name: laravel-horizon
+          image: ghcr.io/zyoshu-inc/zyoshu-modular:latest
+          env:
+            - name: CONTAINER_MODE
+              value: "horizon"
+          envFrom:
+            - secretRef:
+                name: laravel-secrets
+            - configMapRef:
+                name: laravel-config
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          # Simple liveness probe (horizon doesn't serve HTTP)
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - "ps aux | grep -v grep | grep -q php"
+            initialDelaySeconds: 120
+            periodSeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 3
+          volumeMounts:
+            - name: laravel-storage
+              mountPath: /app/storage
+      volumes:
+        - name: laravel-storage
+          emptyDir: {}
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: laravel-horizon-hpa
+  namespace: laravel-app
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: laravel-horizon
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 80
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 85
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300 # Wait 5 minutes before scaling down
+      policies:
+        - type: Percent
+          value: 25
+          periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 60 # Scale up quickly for queue processing
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 60
