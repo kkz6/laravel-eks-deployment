@@ -8,14 +8,14 @@ Your infrastructure now automatically adjusts database configuration based on th
 
 ### 💰 **Staging Environment (Current Configuration)**
 
-| Resource          | Configuration    | Monthly Cost (approx.) |
-| ----------------- | ---------------- | ---------------------- |
-| **Database Tier** | `db-f1-micro`    | ~$7.67                 |
-| **Storage**       | 10GB PD_STANDARD | ~$0.40                 |
-| **Backups**       | Disabled         | $0.00                  |
-| **Availability**  | ZONAL            | $0.00                  |
-| **Read Replicas** | None             | $0.00                  |
-| **Total**         |                  | **~$8.07/month**       |
+| Resource          | Configuration | Monthly Cost (approx.) |
+| ----------------- | ------------- | ---------------------- |
+| **Database Tier** | `db-f1-micro` | ~$7.67                 |
+| **Storage**       | 10GB PD_HDD   | ~$0.27                 |
+| **Backups**       | Disabled      | $0.00                  |
+| **Availability**  | ZONAL         | $0.00                  |
+| **Read Replicas** | None          | $0.00                  |
+| **Total**         |               | **~$7.94/month**       |
 
 ### 🏢 **Production Environment (When deployed)**
 
@@ -43,7 +43,7 @@ Your infrastructure now automatically adjusts database configuration based on th
 tier              = "db-f1-micro"        # Smallest instance
 availability_type = "ZONAL"              # Single zone
 disk_size         = 10                   # 10GB storage
-disk_type         = "PD_STANDARD"        # Standard disk
+disk_type         = "PD_HDD"             # HDD disk (cheapest)
 backups_enabled   = false                # No backups
 binary_log        = false                # No binary logs
 retention_days    = 1                    # Minimal retention
@@ -88,10 +88,10 @@ retention_days    = 7                    # 7-day retention
 
 ## Storage Options
 
-### 💾 **PD_STANDARD (Staging)**
+### 💾 **PD_HDD (Staging)**
 
-- **Performance**: Up to 480 IOPS
-- **Cost**: $0.040/GB/month
+- **Performance**: Up to 180 IOPS (3 IOPS per GB)
+- **Cost**: $0.027/GB/month (cheapest option)
 - **Use Case**: Development, non-critical workloads
 - **Throughput**: Up to 120 MB/s
 

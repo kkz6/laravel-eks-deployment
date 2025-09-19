@@ -85,7 +85,7 @@ variable "database_disk_size" {
 variable "database_disk_type" {
   type        = string
   description = "Database disk type"
-  default     = "PD_STANDARD"
+  default     = "PD_HDD"
 }
 
 variable "database_backup_enabled" {

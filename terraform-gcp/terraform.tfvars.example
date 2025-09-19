@@ -45,14 +45,14 @@ database_version    = "MYSQL_8_0"     # MYSQL_5_7, MYSQL_8_0, POSTGRES_13, etc.
 
 # Staging-optimized (automatic based on environment):
 # - Tier: db-f1-micro (0.6GB RAM, shared CPU)
-# - Disk: 10GB PD_STANDARD 
+# - Disk: 10GB PD_HDD (cheapest option)
 # - Backups: Disabled
 # - Availability: ZONAL
 
 # Production settings (when environment = prod):
 database_tier       = "db-g1-small"   # db-g1-small, db-n1-standard-1, etc.
 database_disk_size  = 50              # 20GB+ for production
-database_disk_type  = "PD_SSD"        # PD_SSD for better performance
+database_disk_type  = "PD_SSD"        # PD_SSD for production performance
 
 database_name       = "laravel_app"
 database_user       = "laravel_user"

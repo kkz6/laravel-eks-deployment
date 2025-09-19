@@ -41,7 +41,7 @@ resource "google_sql_database_instance" "laravel_db_instance" {
     tier              = var.environment[local.env] == "prod" ? var.database_tier : "db-f1-micro"
     availability_type = var.environment[local.env] == "prod" ? var.availability_type : "ZONAL"
     disk_size         = var.environment[local.env] == "prod" ? var.database_disk_size : 10
-    disk_type         = var.environment[local.env] == "prod" ? var.database_disk_type : "PD_STANDARD"
+    disk_type         = var.environment[local.env] == "prod" ? var.database_disk_type : "PD_HDD"
     disk_autoresize   = true
     disk_autoresize_limit = var.environment[local.env] == "prod" ? 100 : 20
 
