@@ -93,6 +93,22 @@ gcloud projects describe zyoshu-test
 
 ## Quick Start
 
+### **Option A: Automated Setup (Recommended)**
+
+1. **Run the setup script**:
+
+   ```bash
+   cd terraform-gcp
+   ./setup-gcp.sh -p zyoshu-test
+   ```
+
+2. **Deploy infrastructure**:
+   ```bash
+   ./deploy.sh -p zyoshu-test -e staging -a apply
+   ```
+
+### **Option B: Manual Setup**
+
 1. **Clone and Navigate**
 
    ```bash
@@ -281,6 +297,39 @@ jobs:
 - Automatic scaling configuration
 - Resource tagging for cost tracking
 - Scheduled shutdown for dev environments
+
+## Troubleshooting
+
+### **Cloud SQL Issues**
+
+```bash
+# Diagnose Cloud SQL problems
+./diagnose-cloudsql.sh
+
+# Check instance status
+gcloud sql instances list
+
+# View operation details
+gcloud sql operations list --instance=INSTANCE_NAME
+```
+
+### **API Issues**
+
+```bash
+# Re-run setup to enable all APIs
+./setup-gcp.sh -p your-project-id
+
+# Check API status
+gcloud services list --enabled --filter="name:(sql OR compute)"
+```
+
+### **Authentication Issues**
+
+```bash
+# Reset authentication
+gcloud auth login
+gcloud auth application-default login
+```
 
 ## Cleanup
 
