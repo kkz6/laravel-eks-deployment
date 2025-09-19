@@ -9,22 +9,14 @@
 # ==========================================================================
 
 # --------------------------------------------------------------------------
-#  Get Database and Redis Connection Info
+#  Local Values for Database and Redis Connection
 # --------------------------------------------------------------------------
-data "terraform_remote_state" "cloud_sql" {
-  backend = "gcs"
-
-  config = {
-    bucket = "${var.tfstate_bucket}-${var.environment[local.env]}"
-    prefix = "cloud-sql/terraform.tfstate"
-  }
-}
-
 locals {
-  db_host     = data.terraform_remote_state.cloud_sql.outputs.database_host
-  db_password = data.terraform_remote_state.cloud_sql.outputs.database_password
-  db_user     = data.terraform_remote_state.cloud_sql.outputs.database_user
-  db_name     = data.terraform_remote_state.cloud_sql.outputs.database_name
+  # Use variables for database connection (will be provided via terraform.tfvars)
+  db_host     = var.db_host
+  db_password = var.db_password
+  db_user     = var.db_user
+  db_name     = var.db_name
   redis_host  = google_compute_instance.redis_vm.network_interface[0].network_ip
 }
 

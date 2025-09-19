@@ -140,35 +140,62 @@ deploy_cloud_sql() {
 }
 
 deploy_gke_and_redis() {
-    echo -e "${YELLOW}Deploying GKE cluster and Redis VM...${NC}"
+    echo -e "${YELLOW}Deploying GKE cluster, Redis VM, and Kubernetes resources...${NC}"
+    
+    # Get database connection info from Cloud SQL
+    if [ "$ACTION" = "apply" ]; then
+        echo -e "${CYAN}Getting database connection info...${NC}"
+        cd environment/providers/gcp/infra/resources/cloud-sql
+        DB_HOST=$(terraform output -raw database_host 2>/dev/null || echo "")
+        DB_PASSWORD=$(terraform output -raw database_password 2>/dev/null || echo "")
+        DB_USER=$(terraform output -raw database_user 2>/dev/null || echo "")
+        DB_NAME=$(terraform output -raw database_name 2>/dev/null || echo "")
+        cd - > /dev/null
+        
+        if [ -n "$DB_HOST" ]; then
+            echo -e "${GREEN}✓ Database info retrieved: $DB_HOST${NC}"
+            DB_VARS="-var=db_host=$DB_HOST -var=db_password=$DB_PASSWORD -var=db_user=$DB_USER -var=db_name=$DB_NAME"
+        else
+            echo -e "${YELLOW}⚠ Database info not available - using defaults${NC}"
+            DB_VARS=""
+        fi
+    else
+        DB_VARS=""
+    fi
     
     cd environment/providers/gcp/infra/resources/gke
     
     terraform init
     terraform workspace select "$ENVIRONMENT" 2>/dev/null || terraform workspace new "$ENVIRONMENT"
     
+    # Check if terraform.tfvars exists for additional variables
+    TERRAFORM_VARS="-var=project_id=$PROJECT_ID $DB_VARS"
+    if [ -f "../../../../terraform.tfvars" ]; then
+        TERRAFORM_VARS="$TERRAFORM_VARS -var-file=../../../../terraform.tfvars"
+    fi
+    
     case $ACTION in
         plan)
-            terraform plan -var="project_id=$PROJECT_ID"
+            terraform plan $TERRAFORM_VARS
             ;;
         apply)
             if [ "$AUTO_APPROVE" = true ]; then
-                terraform apply -var="project_id=$PROJECT_ID" -auto-approve
+                terraform apply $TERRAFORM_VARS -auto-approve
             else
-                terraform apply -var="project_id=$PROJECT_ID"
+                terraform apply $TERRAFORM_VARS
             fi
             ;;
         destroy)
             if [ "$AUTO_APPROVE" = true ]; then
-                terraform destroy -var="project_id=$PROJECT_ID" -auto-approve
+                terraform destroy $TERRAFORM_VARS -auto-approve
             else
-                terraform destroy -var="project_id=$PROJECT_ID"
+                terraform destroy $TERRAFORM_VARS
             fi
             ;;
     esac
     
     cd - > /dev/null
-    echo -e "${GREEN}✓ GKE and Redis $ACTION completed${NC}"
+    echo -e "${GREEN}✓ GKE, Redis, and Kubernetes $ACTION completed${NC}"
 }
 
 configure_kubectl() {
