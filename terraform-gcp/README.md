@@ -76,9 +76,11 @@ gcloud config set project zyoshu-test
 
 # 3. Enable required APIs
 gcloud services enable compute.googleapis.com
+gcloud services enable container.googleapis.com
 gcloud services enable sql-component.googleapis.com
 gcloud services enable sqladmin.googleapis.com
 gcloud services enable storage-component.googleapis.com
+gcloud services enable servicenetworking.googleapis.com
 
 # 4. Set up Application Default Credentials for Terraform
 gcloud auth application-default login
