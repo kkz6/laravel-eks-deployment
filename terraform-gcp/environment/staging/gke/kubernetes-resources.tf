@@ -204,12 +204,12 @@ resource "kubernetes_deployment" "laravel_http" {
 
           resources {
             requests = {
-              memory = "256Mi"
-              cpu    = "100m"
+              memory = "512Mi"
+              cpu    = "250m"
             }
             limits = {
-              memory = "512Mi"
-              cpu    = "300m"
+              memory = "2Gi"
+              cpu    = "1000m"
             }
           }
 
