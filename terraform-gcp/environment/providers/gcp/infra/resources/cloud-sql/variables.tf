@@ -161,7 +161,7 @@ variable "enable_replica" {
 # ------------------------------------
 variable "require_ssl" {
   type        = bool
-  description = "Require SSL connections"
+  description = "Require SSL connections (ENCRYPTED_ONLY vs ALLOW_UNENCRYPTED_AND_ENCRYPTED)"
   default     = true
 }
 

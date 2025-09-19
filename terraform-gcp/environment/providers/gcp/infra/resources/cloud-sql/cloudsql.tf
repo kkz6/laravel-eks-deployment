@@ -69,7 +69,7 @@ resource "google_sql_database_instance" "laravel_db_instance" {
     ip_configuration {
       ipv4_enabled    = true
       private_network = null
-      ssl_mode        = var.require_ssl ? "REQUIRE" : "ALLOW_UNENCRYPTED_AND_ENCRYPTED"
+      ssl_mode        = var.require_ssl ? "ENCRYPTED_ONLY" : "ALLOW_UNENCRYPTED_AND_ENCRYPTED"
 
       dynamic "authorized_networks" {
         for_each = var.authorized_networks
@@ -182,7 +182,7 @@ resource "google_sql_database_instance" "laravel_db_replica" {
 
     ip_configuration {
       ipv4_enabled = true
-      ssl_mode     = var.require_ssl ? "REQUIRE" : "ALLOW_UNENCRYPTED_AND_ENCRYPTED"
+      ssl_mode     = var.require_ssl ? "ENCRYPTED_ONLY" : "ALLOW_UNENCRYPTED_AND_ENCRYPTED"
 
       dynamic "authorized_networks" {
         for_each = var.authorized_networks
