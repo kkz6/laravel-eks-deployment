@@ -47,14 +47,34 @@ output "wildcard_domain_example" {
 # --------------------------------------------------------------------------
 #  Instance Group Outputs
 # --------------------------------------------------------------------------
-output "instance_group_manager" {
-  description = "Instance group manager name"
-  value       = google_compute_instance_group_manager.laravel_group.name
+output "http_instance_group_manager" {
+  description = "HTTP instance group manager name"
+  value       = google_compute_instance_group_manager.laravel_http_group.name
 }
 
-output "instance_group_size" {
-  description = "Current size of the instance group"
-  value       = google_compute_instance_group_manager.laravel_group.target_size
+output "scheduler_instance_group_manager" {
+  description = "Scheduler instance group manager name"
+  value       = google_compute_instance_group_manager.laravel_scheduler_group.name
+}
+
+output "horizon_instance_group_manager" {
+  description = "Horizon instance group manager name"
+  value       = google_compute_instance_group_manager.laravel_horizon_group.name
+}
+
+output "http_instance_count" {
+  description = "Number of HTTP frontend instances"
+  value       = google_compute_instance_group_manager.laravel_http_group.target_size
+}
+
+output "scheduler_instance_count" {
+  description = "Number of scheduler instances"
+  value       = google_compute_instance_group_manager.laravel_scheduler_group.target_size
+}
+
+output "horizon_instance_count" {
+  description = "Number of Horizon worker instances"
+  value       = google_compute_instance_group_manager.laravel_horizon_group.target_size
 }
 
 # --------------------------------------------------------------------------
@@ -91,12 +111,12 @@ output "backend_service_name" {
 # --------------------------------------------------------------------------
 output "ssl_certificate_name" {
   description = "Name of the SSL certificate (if HTTPS enabled)"
-  value       = var.enable_https ? google_compute_managed_ssl_certificate.laravel_ssl_cert[0].name : null
+  value       = var.enable_https && length(google_compute_managed_ssl_certificate.laravel_ssl_cert) > 0 ? google_compute_managed_ssl_certificate.laravel_ssl_cert[0].name : null
 }
 
 output "ssl_certificate_domains" {
   description = "Domains covered by the SSL certificate (if HTTPS enabled)"
-  value       = var.enable_https && length(local.ssl_domains) > 0 ? google_compute_managed_ssl_certificate.laravel_ssl_cert[0].managed[0].domains : null
+  value       = var.enable_https && length(google_compute_managed_ssl_certificate.laravel_ssl_cert) > 0 ? google_compute_managed_ssl_certificate.laravel_ssl_cert[0].managed[0].domains : null
 }
 
 # --------------------------------------------------------------------------
@@ -151,4 +171,42 @@ output "region" {
 output "zone" {
   description = "GCP zone"
   value       = var.gcp_zone
+}
+
+# --------------------------------------------------------------------------
+#  Redis Outputs
+# --------------------------------------------------------------------------
+output "redis_host" {
+  description = "Redis instance host"
+  value       = google_redis_instance.laravel_redis.host
+}
+
+output "redis_port" {
+  description = "Redis instance port"
+  value       = google_redis_instance.laravel_redis.port
+}
+
+output "redis_connection_string" {
+  description = "Redis connection string for Laravel"
+  value       = "redis://${google_redis_instance.laravel_redis.host}:${google_redis_instance.laravel_redis.port}"
+}
+
+output "redis_auth_string" {
+  description = "Redis AUTH string (if enabled)"
+  value       = var.redis_auth_enabled ? random_password.redis_auth[0].result : null
+  sensitive   = true
+}
+
+# --------------------------------------------------------------------------
+#  Container Mode Summary
+# --------------------------------------------------------------------------
+output "container_architecture" {
+  description = "Summary of container architecture"
+  value = {
+    http_instances      = var.http_instance_count
+    scheduler_instances = var.scheduler_instance_count
+    horizon_instances   = var.horizon_instance_count
+    redis_enabled      = true
+    auto_scaling       = "HTTP and Horizon only"
+  }
 }

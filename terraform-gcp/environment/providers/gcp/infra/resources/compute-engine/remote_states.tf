@@ -8,9 +8,10 @@
 # ==========================================================================
 
 # --------------------------------------------------------------------------
-#  Core Infrastructure Remote State
+#  Core Infrastructure Remote State (Optional)
 # --------------------------------------------------------------------------
 data "terraform_remote_state" "core" {
+  count   = var.use_remote_state ? 1 : 0
   backend = "gcs"
 
   config = {
@@ -20,15 +21,16 @@ data "terraform_remote_state" "core" {
 }
 
 # --------------------------------------------------------------------------
-#  Local Values from Remote State
+#  Local Values from Remote State or Defaults
 # --------------------------------------------------------------------------
 locals {
-  vpc_id             = data.terraform_remote_state.core.outputs.vpc_id
-  vpc_name           = data.terraform_remote_state.core.outputs.vpc_name
-  public_subnet_ids  = data.terraform_remote_state.core.outputs.public_subnet_ids
-  public_subnet_names = data.terraform_remote_state.core.outputs.public_subnet_names
-  private_subnet_ids = data.terraform_remote_state.core.outputs.private_subnet_ids
-  private_subnet_names = data.terraform_remote_state.core.outputs.private_subnet_names
+  # Use remote state if available, otherwise use default values
+  vpc_id             = var.use_remote_state ? data.terraform_remote_state.core[0].outputs.vpc_id : null
+  vpc_name           = var.use_remote_state ? data.terraform_remote_state.core[0].outputs.vpc_name : "default"
+  public_subnet_ids  = var.use_remote_state ? data.terraform_remote_state.core[0].outputs.public_subnet_ids : []
+  public_subnet_names = var.use_remote_state ? data.terraform_remote_state.core[0].outputs.public_subnet_names : ["default"]
+  private_subnet_ids = var.use_remote_state ? data.terraform_remote_state.core[0].outputs.private_subnet_ids : []
+  private_subnet_names = var.use_remote_state ? data.terraform_remote_state.core[0].outputs.private_subnet_names : ["default"]
 }
 
 # ------------------------------------
@@ -44,4 +46,13 @@ variable "tfstate_prefix" {
   type        = string
   description = "Path prefix for .tfstate in Bucket"
   default     = "compute-engine/terraform.tfstate"
+}
+
+# ------------------------------------
+#  Remote State Configuration
+# ------------------------------------
+variable "use_remote_state" {
+  type        = bool
+  description = "Use remote state from core infrastructure (requires core to be deployed first)"
+  default     = false
 }

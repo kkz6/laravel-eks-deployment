@@ -23,6 +23,35 @@ resource "random_password" "database_password" {
   special = true
 }
 
+# --------------------------------------------------------------------------
+#  Get Default VPC for Private IP Configuration
+# --------------------------------------------------------------------------
+data "google_compute_network" "default" {
+  name = "default"
+}
+
+# --------------------------------------------------------------------------
+#  Private Services Access for Cloud SQL
+# --------------------------------------------------------------------------
+resource "google_compute_global_address" "private_ip_range" {
+  name          = "laravel-private-ip-range-${var.environment[local.env]}"
+  purpose       = "VPC_PEERING"
+  address_type  = "INTERNAL"
+  prefix_length = 16
+  network       = data.google_compute_network.default.id
+}
+
+resource "google_service_networking_connection" "private_vpc_connection" {
+  network                 = data.google_compute_network.default.id
+  service                 = "servicenetworking.googleapis.com"
+  reserved_peering_ranges = [google_compute_global_address.private_ip_range.name]
+
+  depends_on = [google_compute_global_address.private_ip_range]
+}
+
+# --------------------------------------------------------------------------
+#  Password Generation
+# --------------------------------------------------------------------------
 locals {
   root_password     = var.root_password != "" ? var.root_password : random_password.root_password[0].result
   database_password = var.database_password != "" ? var.database_password : random_password.database_password[0].result
@@ -65,19 +94,14 @@ resource "google_sql_database_instance" "laravel_db_instance" {
       update_track = "stable"
     }
 
-    # IP configuration
+    # IP configuration - Private IP only for VPC access
     ip_configuration {
-      ipv4_enabled    = true
-      private_network = null
-      ssl_mode        = var.require_ssl ? "ENCRYPTED_ONLY" : "ALLOW_UNENCRYPTED_AND_ENCRYPTED"
+      ipv4_enabled                                  = false  # Disable public IP
+      private_network                              = data.google_compute_network.default.id
+      enable_private_path_for_google_cloud_services = true
+      ssl_mode                                     = var.require_ssl ? "ENCRYPTED_ONLY" : "ALLOW_UNENCRYPTED_AND_ENCRYPTED"
 
-      dynamic "authorized_networks" {
-        for_each = var.authorized_networks
-        content {
-          name  = authorized_networks.value.name
-          value = authorized_networks.value.value
-        }
-      }
+      # No authorized networks needed for private IP
     }
 
     # Database flags for optimization
@@ -116,7 +140,10 @@ resource "google_sql_database_instance" "laravel_db_instance" {
     ]
   }
 
-  depends_on = [random_id.db_name_suffix]
+  depends_on = [
+    random_id.db_name_suffix,
+    google_service_networking_connection.private_vpc_connection
+  ]
 }
 
 # --------------------------------------------------------------------------
@@ -181,16 +208,9 @@ resource "google_sql_database_instance" "laravel_db_replica" {
     disk_autoresize   = true
 
     ip_configuration {
-      ipv4_enabled = true
-      ssl_mode     = var.require_ssl ? "ENCRYPTED_ONLY" : "ALLOW_UNENCRYPTED_AND_ENCRYPTED"
-
-      dynamic "authorized_networks" {
-        for_each = var.authorized_networks
-        content {
-          name  = authorized_networks.value.name
-          value = authorized_networks.value.value
-        }
-      }
+      ipv4_enabled    = false  # Private IP only for replica too
+      private_network = data.google_compute_network.default.id
+      ssl_mode        = var.require_ssl ? "ENCRYPTED_ONLY" : "ALLOW_UNENCRYPTED_AND_ENCRYPTED"
     }
 
     user_labels = merge(local.labels, {

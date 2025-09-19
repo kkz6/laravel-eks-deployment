@@ -21,14 +21,14 @@ resource "google_compute_backend_service" "laravel_backend" {
   enable_cdn            = false
 
   backend {
-    group           = google_compute_instance_group_manager.laravel_group.instance_group
+    group           = google_compute_instance_group_manager.laravel_http_group.instance_group
     balancing_mode  = "UTILIZATION"
     capacity_scaler = 1.0
   }
 
   health_checks = [google_compute_health_check.laravel_lb_health_check.id]
 
-  depends_on = [google_compute_instance_group_manager.laravel_group]
+  depends_on = [google_compute_instance_group_manager.laravel_http_group]
 }
 
 # --------------------------------------------------------------------------

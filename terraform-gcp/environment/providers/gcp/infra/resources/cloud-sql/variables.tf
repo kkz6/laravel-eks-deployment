@@ -170,13 +170,8 @@ variable "authorized_networks" {
     name  = string
     value = string
   }))
-  description = "List of authorized networks"
-  default = [
-    {
-      name  = "all"
-      value = "0.0.0.0/0"
-    }
-  ]
+  description = "List of authorized networks (not used with private IP)"
+  default = []
 }
 
 # ------------------------------------

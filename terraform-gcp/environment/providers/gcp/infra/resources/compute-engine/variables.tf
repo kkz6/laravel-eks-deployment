@@ -255,3 +255,51 @@ variable "ssh_user" {
   description = "Username for SSH access"
   default     = "ubuntu"
 }
+
+# ------------------------------------
+#  Container Mode Configuration
+# ------------------------------------
+variable "http_instance_count" {
+  type        = number
+  description = "Number of HTTP frontend instances"
+  default     = 2
+}
+
+variable "scheduler_instance_count" {
+  type        = number
+  description = "Number of scheduler instances (usually 1)"
+  default     = 1
+}
+
+variable "horizon_instance_count" {
+  type        = number
+  description = "Number of Laravel Horizon worker instances"
+  default     = 1
+}
+
+# ------------------------------------
+#  Redis Configuration
+# ------------------------------------
+variable "redis_tier" {
+  type        = string
+  description = "Redis instance tier (BASIC or STANDARD_HA)"
+  default     = "STANDARD_HA"
+}
+
+variable "redis_memory_size" {
+  type        = number
+  description = "Redis memory size in GB"
+  default     = 1
+}
+
+variable "redis_version" {
+  type        = string
+  description = "Redis version"
+  default     = "REDIS_7_0"
+}
+
+variable "redis_auth_enabled" {
+  type        = bool
+  description = "Enable Redis AUTH"
+  default     = true
+}

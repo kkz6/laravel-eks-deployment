@@ -1,0 +1,62 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: laravel-scheduler
+  namespace: laravel-app
+  labels:
+    app: laravel-scheduler
+    component: scheduler
+    mode: scheduler
+spec:
+  replicas: 1 # Always exactly 1 scheduler
+  strategy:
+    type: Recreate # Ensure only one scheduler runs at a time
+  selector:
+    matchLabels:
+      app: laravel-scheduler
+      mode: scheduler
+  template:
+    metadata:
+      labels:
+        app: laravel-scheduler
+        mode: scheduler
+        component: scheduler
+    spec:
+      imagePullSecrets:
+        - name: github-registry-secret
+      containers:
+        - name: laravel-scheduler
+          image: ghcr.io/zyoshu-inc/zyoshu-modular:latest
+          env:
+            - name: CONTAINER_MODE
+              value: "scheduler"
+          envFrom:
+            - secretRef:
+                name: laravel-secrets
+            - configMapRef:
+                name: laravel-config
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "100m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          # Simple liveness probe (scheduler doesn't serve HTTP)
+          livenessProbe:
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - "ps aux | grep -v grep | grep -q php"
+            initialDelaySeconds: 120
+            periodSeconds: 60
+            timeoutSeconds: 10
+            failureThreshold: 3
+          volumeMounts:
+            - name: laravel-storage
+              mountPath: /app/storage
+      volumes:
+        - name: laravel-storage
+          emptyDir: {}
+      restartPolicy: Always

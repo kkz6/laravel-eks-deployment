@@ -81,8 +81,8 @@ resource "google_compute_instance_template" "laravel_template" {
 
   # Network interface
   network_interface {
-    network    = local.vpc_name
-    subnetwork = local.public_subnet_names[0]
+    network    = var.use_remote_state ? local.vpc_name : "default"
+    subnetwork = var.use_remote_state && length(local.public_subnet_names) > 0 ? local.public_subnet_names[0] : null
     
     # External IP for internet access
     access_config {

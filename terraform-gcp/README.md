@@ -20,19 +20,25 @@ This Terraform configuration deploys Laravel Docker containers to Google Cloud P
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                        GCP Project                          │
+│                     Cloudflare DNS                          │
+│               app.zyoshu.com, *.app.zyoshu.com             │
+└─────────────────────┬───────────────────────────────────────┘
+                      │
+┌─────────────────────┴───────────────────────────────────────┐
+│                 GKE Kubernetes Cluster                     │
 ├─────────────────────────────────────────────────────────────┤
-│  ┌─────────────────┐    ┌─────────────────┐                │
-│  │   Load Balancer │────│   Compute Engine│                │
-│  │    (HTTP/HTTPS) │    │   VM Instances  │                │
-│  └─────────────────┘    │   (Docker)      │                │
-│                         └─────────────────┘                │
-│                                │                            │
-│                         ┌─────────────────┐                │
-│                         │    Cloud SQL    │                │
-│                         │   (MySQL/PG)    │                │
-│                         └─────────────────┘                │
-└─────────────────────────────────────────────────────────────┘
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────────────┐   │
+│  │ HTTP Pods   │ │Scheduler Pod│ │   Horizon Pods      │   │
+│  │(Auto-scale) │ │(Single Pod) │ │  (Auto-scale)       │   │
+│  │CONTAINER_   │ │CONTAINER_   │ │  CONTAINER_         │   │
+│  │MODE=http    │ │MODE=scheduler│ │  MODE=horizon      │   │
+│  └─────────────┘ └─────────────┘ └─────────────────────┘   │
+└─────────────────────┬───────────────────┬───────────────────┘
+                      │                   │
+              ┌───────┴────────┐  ┌───────┴────────┐
+              │   Cloud SQL    │  │   Redis VM     │
+              │   (Managed)    │  │(Cost-effective)│
+              └────────────────┘  └────────────────┘
 ```
 
 ## Prerequisites
@@ -93,7 +99,7 @@ gcloud projects describe zyoshu-test
 
 ## Quick Start
 
-### **Option A: Automated Setup (Recommended)**
+### **Kubernetes Deployment (Recommended)**
 
 1. **Run the setup script**:
 
@@ -102,12 +108,19 @@ gcloud projects describe zyoshu-test
    ./setup-gcp.sh -p zyoshu-test
    ```
 
-2. **Deploy infrastructure**:
+2. **Deploy Kubernetes infrastructure**:
+
    ```bash
    ./deploy.sh -p zyoshu-test -e staging -a apply
    ```
 
-### **Option B: Manual Setup**
+3. **Verify deployment**:
+   ```bash
+   kubectl get pods -n laravel-app
+   kubectl get ingress -n laravel-app
+   ```
+
+### **Option C: Manual Setup**
 
 1. **Clone and Navigate**
 
@@ -155,14 +168,16 @@ gcloud projects describe zyoshu-test
 ```
 terraform-gcp/
 ├── README.md
+├── deploy.sh                      # Main deployment script
+├── setup-gcp.sh                   # GCP project setup
 └── environment/
     └── providers/
         └── gcp/
             └── infra/
-                ├── core/              # VPC, Subnets, Firewall
                 ├── resources/
-                │   ├── compute-engine/    # VM instances for Docker
-                │   └── cloud-sql/         # Managed database
+                │   ├── gke/               # GKE cluster & Redis VM
+                │   ├── cloud-sql/         # Managed database
+                │   └── k8s-manifests/     # Kubernetes YAML files
                 └── tfstate/           # Terraform state management
 ```
 

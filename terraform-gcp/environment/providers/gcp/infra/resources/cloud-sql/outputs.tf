@@ -20,8 +20,8 @@ output "database_connection_name" {
 }
 
 output "database_public_ip" {
-  description = "Public IP address of the Cloud SQL instance"
-  value       = google_sql_database_instance.laravel_db_instance.public_ip_address
+  description = "Public IP address of the Cloud SQL instance (disabled for VPC-only)"
+  value       = null
 }
 
 output "database_private_ip" {
@@ -63,8 +63,8 @@ output "root_password" {
 #  Connection Information
 # --------------------------------------------------------------------------
 output "database_host" {
-  description = "Database host (public IP)"
-  value       = google_sql_database_instance.laravel_db_instance.public_ip_address
+  description = "Database host (private IP for VPC access)"
+  value       = google_sql_database_instance.laravel_db_instance.private_ip_address
 }
 
 output "database_port" {
@@ -73,8 +73,8 @@ output "database_port" {
 }
 
 output "database_url" {
-  description = "Complete database connection URL"
-  value       = "mysql://${google_sql_user.laravel_user.name}:${local.database_password}@${google_sql_database_instance.laravel_db_instance.public_ip_address}:3306/${google_sql_database.laravel_database.name}"
+  description = "Complete database connection URL (private IP)"
+  value       = "mysql://${google_sql_user.laravel_user.name}:${local.database_password}@${google_sql_database_instance.laravel_db_instance.private_ip_address}:3306/${google_sql_database.laravel_database.name}"
   sensitive   = true
 }
 
@@ -132,7 +132,7 @@ output "laravel_env_vars" {
   description = "Environment variables for Laravel application"
   value = {
     DB_CONNECTION = "mysql"
-    DB_HOST      = google_sql_database_instance.laravel_db_instance.public_ip_address
+    DB_HOST      = google_sql_database_instance.laravel_db_instance.private_ip_address
     DB_PORT      = "3306"
     DB_DATABASE  = google_sql_database.laravel_database.name
     DB_USERNAME  = google_sql_user.laravel_user.name
