@@ -196,7 +196,7 @@ resource "kubernetes_deployment" "laravel_http" {
           resources {
             requests = {
               memory = "256Mi"
-              cpu    = "250m"
+              cpu    = "200m"
             }
             limits = {
               memory = "512Mi"
@@ -317,7 +317,7 @@ resource "kubernetes_deployment" "laravel_scheduler" {
             }
             limits = {
               memory = "256Mi"
-              cpu    = "200m"
+              cpu    = "300m"
             }
           }
 
@@ -416,11 +416,11 @@ resource "kubernetes_deployment" "laravel_horizon" {
           resources {
             requests = {
               memory = "256Mi"
-              cpu    = "200m"
+              cpu    = "150m"
             }
             limits = {
               memory = "512Mi"
-              cpu    = "500m"
+              cpu    = "400m"
             }
           }
 
@@ -531,6 +531,7 @@ resource "kubernetes_horizontal_pod_autoscaler_v2" "laravel_http_hpa" {
     behavior {
       scale_down {
         stabilization_window_seconds = 300
+        select_policy = "Min"
         policy {
           type          = "Percent"
           value         = 10
@@ -540,6 +541,7 @@ resource "kubernetes_horizontal_pod_autoscaler_v2" "laravel_http_hpa" {
 
       scale_up {
         stabilization_window_seconds = 60
+        select_policy = "Max"
         policy {
           type          = "Percent"
           value         = 50
@@ -596,6 +598,7 @@ resource "kubernetes_horizontal_pod_autoscaler_v2" "laravel_horizon_hpa" {
     behavior {
       scale_down {
         stabilization_window_seconds = 300
+        select_policy = "Min"
         policy {
           type          = "Percent"
           value         = 25
@@ -605,6 +608,7 @@ resource "kubernetes_horizontal_pod_autoscaler_v2" "laravel_horizon_hpa" {
 
       scale_up {
         stabilization_window_seconds = 60
+        select_policy = "Max"
         policy {
           type          = "Percent"
           value         = 100

@@ -22,6 +22,7 @@ ACTION="plan"
 AUTO_APPROVE=false
 PROJECT_ID=""
 SKIP_K8S_DEPLOY=false
+SKIP_IMPORT=false
 
 # Functions
 print_usage() {
@@ -29,15 +30,17 @@ print_usage() {
     echo ""
     echo "OPTIONS:"
     echo "  -e, --environment ENV    Environment (lab|staging|prod) [default: staging]"
-    echo "  -a, --action ACTION      Action (plan|apply|destroy) [default: plan]"
+    echo "  -a, --action ACTION      Action (plan|apply|destroy|refresh) [default: plan]"
     echo "  -p, --project PROJECT    GCP Project ID (required)"
     echo "  -y, --auto-approve       Auto approve terraform apply/destroy"
     echo "  -s, --skip-k8s           Skip Kubernetes manifest deployment"
+    echo "  -i, --skip-import        Skip importing existing Kubernetes resources"
     echo "  -h, --help               Show this help message"
     echo ""
     echo "EXAMPLES:"
     echo "  $0 -p zyoshu-test -e staging -a plan"
     echo "  $0 -p zyoshu-test -e staging -a apply -y"
+    echo "  $0 -p zyoshu-test -e staging -a refresh    # Refresh state"
     echo "  $0 -p zyoshu-test -e staging -a destroy"
 }
 
@@ -123,6 +126,20 @@ deploy_cloud_sql() {
             else
                 terraform apply -var="project_id=$PROJECT_ID"
             fi
+            
+            # Grant database privileges for multi-tenant system
+            if [ -f "grant-db-privileges.sh" ]; then
+                echo -e "${YELLOW}Granting database privileges for multi-tenant system...${NC}"
+                ./grant-db-privileges.sh
+                if [ $? -eq 0 ]; then
+                    echo -e "${GREEN}✓ Database privileges granted successfully${NC}"
+                else
+                    echo -e "${RED}✗ Failed to grant database privileges${NC}"
+                    echo -e "${YELLOW}You can run the script manually later: ./grant-db-privileges.sh${NC}"
+                fi
+            else
+                echo -e "${YELLOW}⚠ Database privilege script not found - run terraform apply first to generate it${NC}"
+            fi
             ;;
         destroy)
             if [ "$AUTO_APPROVE" = true ]; then
@@ -135,6 +152,52 @@ deploy_cloud_sql() {
     
     cd - > /dev/null
     echo -e "${GREEN}✓ Cloud SQL $ACTION completed${NC}"
+}
+
+import_existing_k8s_resources() {
+    echo -e "${YELLOW}Checking for existing Kubernetes resources...${NC}"
+    
+    # Ensure kubectl is configured
+    GCLOUD_SDK_PATH=$(gcloud info --format="value(installation.sdk_root)" 2>/dev/null || echo "")
+    if [ -n "$GCLOUD_SDK_PATH" ]; then
+        export PATH="$GCLOUD_SDK_PATH/bin:$PATH"
+    fi
+    
+    # Test kubectl connectivity with timeout
+    echo -e "${CYAN}Testing kubectl connectivity...${NC}"
+    if ! timeout 30 kubectl cluster-info &>/dev/null; then
+        echo -e "${YELLOW}⚠ kubectl not accessible - skipping import (this is normal for first deployment)${NC}"
+        return
+    fi
+    
+    echo -e "${GREEN}✓ kubectl is accessible${NC}"
+    
+    # Check if namespace exists (with timeout)
+    if timeout 10 kubectl get namespace laravel-app &>/dev/null; then
+        echo -e "${CYAN}Importing existing namespace...${NC}"
+        terraform import $TERRAFORM_VARS kubernetes_namespace.laravel_app laravel-app 2>/dev/null || echo "Import failed, continuing..."
+    else
+        echo -e "${CYAN}No existing namespace found${NC}"
+    fi
+    
+    # Check if secrets exist (with timeout)
+    if timeout 10 kubectl get secret laravel-secrets -n laravel-app &>/dev/null; then
+        echo -e "${CYAN}Importing existing secrets...${NC}"
+        terraform import $TERRAFORM_VARS kubernetes_secret.laravel_secrets laravel-app/laravel-secrets 2>/dev/null || echo "Import failed, continuing..."
+    fi
+    
+    if timeout 10 kubectl get secret github-registry-secret -n laravel-app &>/dev/null; then
+        echo -e "${CYAN}Importing existing GitHub registry secret...${NC}"
+        terraform import $TERRAFORM_VARS kubernetes_secret.github_registry_secret laravel-app/github-registry-secret 2>/dev/null || echo "Import failed, continuing..."
+    fi
+    
+    # Check if configmap exists (with timeout)
+    if timeout 10 kubectl get configmap laravel-config -n laravel-app &>/dev/null; then
+        echo -e "${CYAN}Importing existing configmap...${NC}"
+        terraform import $TERRAFORM_VARS kubernetes_config_map.laravel_config laravel-app/laravel-config 2>/dev/null || echo "Import failed, continuing..."
+    fi
+    
+    echo -e "${GREEN}✓ Existing resource import completed${NC}"
 }
 
 deploy_gke_and_redis() {
@@ -174,6 +237,13 @@ deploy_gke_and_redis() {
         echo -e "${YELLOW}⚠ terraform.tfvars not found - using default values${NC}"
     fi
     
+    # Import existing Kubernetes resources if they exist
+    if [ "$ACTION" = "apply" ] && [ "$SKIP_IMPORT" = false ]; then
+        import_existing_k8s_resources
+    elif [ "$SKIP_IMPORT" = true ]; then
+        echo -e "${YELLOW}Skipping Kubernetes resource import${NC}"
+    fi
+    
     case $ACTION in
         plan)
             terraform plan $TERRAFORM_VARS
@@ -184,6 +254,11 @@ deploy_gke_and_redis() {
             else
                 terraform apply $TERRAFORM_VARS
             fi
+            ;;
+        refresh)
+            echo -e "${CYAN}Refreshing Terraform state...${NC}"
+            terraform refresh $TERRAFORM_VARS
+            terraform plan $TERRAFORM_VARS
             ;;
         destroy)
             if [ "$AUTO_APPROVE" = true ]; then
@@ -315,6 +390,10 @@ while [[ $# -gt 0 ]]; do
             SKIP_K8S_DEPLOY=true
             shift
             ;;
+        -i|--skip-import)
+            SKIP_IMPORT=true
+            shift
+            ;;
         -h|--help)
             print_usage
             exit 0
@@ -333,8 +412,8 @@ if [[ ! "$ENVIRONMENT" =~ ^(lab|staging|prod)$ ]]; then
     exit 1
 fi
 
-if [[ ! "$ACTION" =~ ^(plan|apply|destroy)$ ]]; then
-    echo -e "${RED}Error: Action must be plan, apply, or destroy${NC}"
+if [[ ! "$ACTION" =~ ^(plan|apply|destroy|refresh)$ ]]; then
+    echo -e "${RED}Error: Action must be plan, apply, destroy, or refresh${NC}"
     exit 1
 fi
 

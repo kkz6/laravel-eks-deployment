@@ -108,10 +108,10 @@ resource "google_container_node_pool" "laravel_nodes" {
   initial_node_count = var.environment[local.env] == "prod" ? var.node_count : 1
   
   dynamic "autoscaling" {
-    for_each = var.environment[local.env] == "prod" && var.enable_autoscaling ? [1] : []
+    for_each = var.enable_autoscaling ? [1] : []
     content {
-      min_node_count = var.environment[local.env] == "prod" ? 1 : 1
-      max_node_count = var.environment[local.env] == "prod" ? 3 : 1
+      min_node_count = 1
+      max_node_count = var.environment[local.env] == "prod" ? 3 : 2  # Allow staging to scale to 2 nodes
     }
   }
 

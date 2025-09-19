@@ -176,6 +176,62 @@ resource "google_sql_user" "laravel_user" {
 }
 
 # --------------------------------------------------------------------------
+#  Grant Database Privileges to Laravel User (Multi-Tenant Support)
+# --------------------------------------------------------------------------
+# Note: This script should be run after the database is created
+resource "local_file" "grant_privileges_script" {
+  filename = "${path.module}/grant-db-privileges.sh"
+  content = <<-EOT
+#!/bin/bash
+# Script to grant database privileges to Laravel user for multi-tenant system
+
+echo "Granting multi-tenant privileges to ${var.database_user}..."
+
+kubectl run mysql-grant-privileges \
+  --image=mysql:8.0 \
+  --rm -i --restart=Never \
+  --namespace=laravel-app \
+  -- mysql \
+  -h ${google_sql_database_instance.laravel_db_instance.private_ip_address} \
+  -u root \
+  -p'${local.root_password}' \
+  -e "
+    -- Grant privileges for multi-tenant system
+    GRANT CREATE ON *.* TO '${var.database_user}'@'%';
+    GRANT DROP ON *.* TO '${var.database_user}'@'%';
+    GRANT ALTER ON *.* TO '${var.database_user}'@'%';
+    GRANT INDEX ON *.* TO '${var.database_user}'@'%';
+    GRANT REFERENCES ON *.* TO '${var.database_user}'@'%';
+    
+    -- Grant full privileges on main database
+    GRANT ALL PRIVILEGES ON ${var.database_name}.* TO '${var.database_user}'@'%';
+    
+    -- Grant privileges on all tenant databases (pattern-based)
+    GRANT ALL PRIVILEGES ON \`tenant_%\`.* TO '${var.database_user}'@'%';
+    GRANT ALL PRIVILEGES ON \`app_%\`.* TO '${var.database_user}'@'%';
+    
+    -- Flush privileges and show grants
+    FLUSH PRIVILEGES;
+    SHOW GRANTS FOR '${var.database_user}'@'%';
+  "
+
+echo "Multi-tenant privileges granted successfully!"
+echo "Laravel user can now:"
+echo "  - Create/Drop databases"
+echo "  - Manage all tenant databases"
+echo "  - Full access to main database: ${var.database_name}"
+EOT
+
+  file_permission = "0755"
+
+  depends_on = [
+    google_sql_database.laravel_database,
+    google_sql_user.laravel_user,
+    google_sql_user.root_user
+  ]
+}
+
+# --------------------------------------------------------------------------
 #  Root User Password Update
 # --------------------------------------------------------------------------
 resource "google_sql_user" "root_user" {
