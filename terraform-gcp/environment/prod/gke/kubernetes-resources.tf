@@ -701,13 +701,17 @@ resource "kubernetes_manifest" "laravel_ssl_cert" {
     }
     spec = {
       domains = [
-        "${var.app_subdomain}.${var.base_domain}",
-        "*.${var.app_subdomain}.${var.base_domain}"
+        "${var.app_subdomain}.${var.base_domain}"
+        # Note: Wildcard domains not supported by Google Managed Certificates
+        # Use Cloudflare SSL for wildcard support
       ]
     }
   }
 
-  depends_on = [kubernetes_namespace.laravel_app]
+  depends_on = [
+    kubernetes_namespace.laravel_app,
+    google_container_node_pool.laravel_nodes
+  ]
 }
 
 # --------------------------------------------------------------------------

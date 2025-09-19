@@ -16,7 +16,10 @@ data "google_container_cluster" "gke_cluster" {
   name     = google_container_cluster.laravel_cluster.name
   location = google_container_cluster.laravel_cluster.location
 
-  depends_on = [google_container_cluster.laravel_cluster]
+  depends_on = [
+    google_container_cluster.laravel_cluster,
+    google_container_node_pool.laravel_nodes
+  ]
 }
 
 # --------------------------------------------------------------------------
@@ -26,12 +29,15 @@ provider "kubernetes" {
   host                   = "https://${data.google_container_cluster.gke_cluster.endpoint}"
   token                  = data.google_client_config.default.access_token
   cluster_ca_certificate = base64decode(data.google_container_cluster.gke_cluster.master_auth[0].cluster_ca_certificate)
-}
-
-provider "helm" {
-  kubernetes {
-    host                   = "https://${data.google_container_cluster.gke_cluster.endpoint}"
-    token                  = data.google_client_config.default.access_token
-    cluster_ca_certificate = base64decode(data.google_container_cluster.gke_cluster.master_auth[0].cluster_ca_certificate)
+  
+  # Ignore annotations for managed resources
+  ignore_annotations = [
+    "kubectl.kubernetes.io/last-applied-configuration"
+  ]
+  
+  # Ensure cluster is ready before connecting
+  exec {
+    api_version = "client.authentication.k8s.io/v1beta1"
+    command     = "gke-gcloud-auth-plugin"
   }
 }

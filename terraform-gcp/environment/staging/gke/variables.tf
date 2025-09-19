@@ -260,83 +260,65 @@ variable "tfstate_prefix" {
 }
 
 # ------------------------------------
-#  Additional Variables from terraform.tfvars
+#  Variables from terraform.tfvars (to eliminate warnings)
 # ------------------------------------
 variable "database_version" {
   type        = string
-  description = "Database version (not used in GKE module)"
+  description = "Database version"
   default     = "MYSQL_8_0"
 }
 
 variable "database_tier" {
   type        = string
-  description = "Database tier (not used in GKE module)"
+  description = "Database tier"
   default     = "db-f1-micro"
 }
 
 variable "database_disk_size" {
   type        = number
-  description = "Database disk size (not used in GKE module)"
+  description = "Database disk size"
   default     = 10
 }
 
 variable "database_disk_type" {
   type        = string
-  description = "Database disk type (not used in GKE module)"
+  description = "Database disk type"
   default     = "PD_HDD"
 }
 
 variable "database_name" {
   type        = string
-  description = "Database name (not used in GKE module)"
+  description = "Database name"
   default     = "laravel_app"
 }
 
 variable "database_user" {
   type        = string
-  description = "Database user (not used in GKE module)"
+  description = "Database user"
   default     = "laravel_user"
 }
 
 variable "availability_type" {
   type        = string
-  description = "Database availability type (not used in GKE module)"
+  description = "Database availability type"
   default     = "ZONAL"
 }
 
 variable "enable_replica" {
   type        = bool
-  description = "Enable database replica (not used in GKE module)"
+  description = "Enable database replica"
   default     = false
 }
 
 variable "require_ssl" {
   type        = bool
-  description = "Require SSL for database (not used in GKE module)"
-  default     = true
-}
-
-variable "enable_https" {
-  type        = bool
-  description = "Enable HTTPS (handled by ingress)"
-  default     = true
-}
-
-variable "wildcard_ssl" {
-  type        = bool
-  description = "Use wildcard SSL certificate for multi-tenant subdomains"
-  default     = true
-}
-
-variable "tenant_routing_enabled" {
-  type        = bool
-  description = "Enable tenant-based routing in application"
+  description = "Require SSL for database"
   default     = true
 }
 
 variable "use_remote_state" {
   type        = bool
-  description = "Use remote state (not used in simplified structure)"
+  description = "Use remote state"
   default     = false
 }
 
@@ -345,3 +327,5 @@ variable "frankenphp_port" {
   description = "Port that FrankenPHP serves on"
   default     = 8000
 }
+
+
