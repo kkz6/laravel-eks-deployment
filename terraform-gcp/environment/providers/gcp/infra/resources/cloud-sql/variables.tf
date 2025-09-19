@@ -79,13 +79,13 @@ variable "database_tier" {
 variable "database_disk_size" {
   type        = number
   description = "Database disk size in GB"
-  default     = 20
+  default     = 10
 }
 
 variable "database_disk_type" {
   type        = string
   description = "Database disk type"
-  default     = "PD_SSD"
+  default     = "PD_STANDARD"
 }
 
 variable "database_backup_enabled" {

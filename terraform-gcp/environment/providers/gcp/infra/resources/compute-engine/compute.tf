@@ -101,10 +101,11 @@ resource "google_compute_instance_template" "laravel_template" {
   }
 
   # Metadata and startup script
-  metadata = {
+  metadata = merge({
     startup-script = local.startup_script
-    ssh-keys       = "ubuntu:${file("~/.ssh/id_rsa.pub")}"
-  }
+  }, var.ssh_public_key != "" ? {
+    ssh-keys = "${var.ssh_user}:${var.ssh_public_key}"
+  } : {})
 
   # Network tags for firewall rules
   tags = ["laravel-web", "laravel-app", "laravel-ssh"]

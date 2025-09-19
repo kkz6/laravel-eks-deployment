@@ -39,11 +39,21 @@ github_token    = "ghp_your_github_personal_access_token"
 frankenphp_port = 80  # Port that FrankenPHP serves on
 
 # ------------------------------------
-#  Database Configuration
+#  Database Configuration (Environment-aware)
 # ------------------------------------
 database_version    = "MYSQL_8_0"     # MYSQL_5_7, MYSQL_8_0, POSTGRES_13, etc.
-database_tier       = "db-f1-micro"   # db-f1-micro, db-g1-small, db-n1-standard-1, etc.
-database_disk_size  = 20              # Disk size in GB
+
+# Staging-optimized (automatic based on environment):
+# - Tier: db-f1-micro (0.6GB RAM, shared CPU)
+# - Disk: 10GB PD_STANDARD 
+# - Backups: Disabled
+# - Availability: ZONAL
+
+# Production settings (when environment = prod):
+database_tier       = "db-g1-small"   # db-g1-small, db-n1-standard-1, etc.
+database_disk_size  = 50              # 20GB+ for production
+database_disk_type  = "PD_SSD"        # PD_SSD for better performance
+
 database_name       = "laravel_app"
 database_user       = "laravel_user"
 # database_password = "your-secure-password"  # Leave empty for auto-generation
@@ -88,6 +98,12 @@ wildcard_ssl   = true                    # Enables *.app.yourdomain.com for tena
 
 # Tenant routing
 tenant_routing_enabled = true
+
+# ------------------------------------
+#  SSH Access (Optional)
+# ------------------------------------
+# ssh_public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQ... your-public-key"
+# ssh_user       = "ubuntu"
 
 # ------------------------------------
 #  Laravel Application

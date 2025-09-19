@@ -240,3 +240,18 @@ variable "static_ip_name" {
   description = "Name for the reserved static IP address"
   default     = ""
 }
+
+# ------------------------------------
+#  SSH Configuration (Optional)
+# ------------------------------------
+variable "ssh_public_key" {
+  type        = string
+  description = "SSH public key for instance access (optional)"
+  default     = ""
+}
+
+variable "ssh_user" {
+  type        = string
+  description = "Username for SSH access"
+  default     = "ubuntu"
+}

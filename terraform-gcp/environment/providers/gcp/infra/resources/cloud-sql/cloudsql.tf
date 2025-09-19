@@ -38,22 +38,22 @@ resource "google_sql_database_instance" "laravel_db_instance" {
   deletion_protection = var.environment[local.env] == "prod" ? true : false
 
   settings {
-    tier                        = var.database_tier
-    availability_type          = var.availability_type
-    disk_size                  = var.database_disk_size
-    disk_type                  = var.database_disk_type
-    disk_autoresize           = true
-    disk_autoresize_limit     = var.environment[local.env] == "prod" ? 100 : 50
+    tier              = var.environment[local.env] == "prod" ? var.database_tier : "db-f1-micro"
+    availability_type = var.environment[local.env] == "prod" ? var.availability_type : "ZONAL"
+    disk_size         = var.environment[local.env] == "prod" ? var.database_disk_size : 10
+    disk_type         = var.environment[local.env] == "prod" ? var.database_disk_type : "PD_STANDARD"
+    disk_autoresize   = true
+    disk_autoresize_limit = var.environment[local.env] == "prod" ? 100 : 20
 
-    # Backup configuration
+    # Backup configuration (simplified for staging)
     backup_configuration {
-      enabled                        = var.database_backup_enabled
+      enabled                        = var.environment[local.env] == "prod" ? var.database_backup_enabled : false
       start_time                    = var.database_backup_start_time
       location                      = var.gcp_region
-      binary_log_enabled           = true
-      transaction_log_retention_days = var.environment[local.env] == "prod" ? 7 : 3
+      binary_log_enabled           = var.environment[local.env] == "prod" ? true : false
+      transaction_log_retention_days = var.environment[local.env] == "prod" ? 7 : 1
       backup_retention_settings {
-        retained_backups = var.environment[local.env] == "prod" ? 30 : 7
+        retained_backups = var.environment[local.env] == "prod" ? 30 : 3
         retention_unit   = "COUNT"
       }
     }

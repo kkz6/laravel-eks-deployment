@@ -181,7 +181,7 @@ if ! docker ps | grep -q laravel-frankenphp; then
 fi
 
 # Check HTTP response
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/health || echo "000")
+HTTP_CODE=$(curl -s -o /dev/null -w "%%{http_code}" http://localhost/health || echo "000")
 
 if [ "$HTTP_CODE" = "200" ]; then
     echo "Health check passed"
