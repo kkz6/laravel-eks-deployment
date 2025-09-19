@@ -124,6 +124,7 @@ enable_apis() {
     # List of required APIs
     APIS=(
         "compute.googleapis.com"                    # Compute Engine
+        "container.googleapis.com"                  # Google Kubernetes Engine
         "sqladmin.googleapis.com"                   # Cloud SQL Admin
         "sql-component.googleapis.com"              # Cloud SQL Component
         "storage-component.googleapis.com"          # Cloud Storage Component
@@ -132,7 +133,8 @@ enable_apis() {
         "iam.googleapis.com"                        # Identity and Access Management
         "logging.googleapis.com"                    # Cloud Logging
         "monitoring.googleapis.com"                 # Cloud Monitoring
-        "servicenetworking.googleapis.com"         # Service Networking (for private IP)
+        "servicenetworking.googleapis.com"         # Service Networking (for Cloud SQL private IP)
+        "cloudkms.googleapis.com"                   # Cloud KMS (for GKE encryption)
     )
     
     echo -e "${CYAN}Enabling APIs (this may take a few minutes)...${NC}"
