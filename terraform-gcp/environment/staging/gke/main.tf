@@ -21,7 +21,7 @@ locals {
 provider "google" {
   project = var.project_id
   region  = var.gcp_region
-  
+
   # Use Application Default Credentials (ADC)
   # Run: gcloud auth application-default login
 }
@@ -35,7 +35,7 @@ locals {
     department       = var.department
     department_group = "${var.environment[local.env]}-${var.department}"
     terraform        = "true"
-    project         = "laravel-gcp-deployment"
-    component       = "gke"
+    project          = "laravel-gcp-deployment"
+    component        = "gke"
   }
 }

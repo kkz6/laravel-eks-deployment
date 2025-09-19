@@ -334,6 +334,11 @@ variable "run_migrations" {
   default     = false
 }
 
+variable "letsencrypt_email" {
+  description = "Email address for Let's Encrypt certificate registration"
+  type        = string
+}
+
 variable "enable_https" {
   type        = bool
   description = "Enable HTTPS"

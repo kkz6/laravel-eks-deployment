@@ -29,9 +29,20 @@ provider "kubernetes" {
   host                   = "https://${data.google_container_cluster.gke_cluster.endpoint}"
   token                  = data.google_client_config.default.access_token
   cluster_ca_certificate = base64decode(data.google_container_cluster.gke_cluster.master_auth[0].cluster_ca_certificate)
-  
+
   # Ignore annotations for managed resources
   ignore_annotations = [
     "kubectl.kubernetes.io/last-applied-configuration"
   ]
+}
+
+# --------------------------------------------------------------------------
+#  Helm Provider Configuration
+# --------------------------------------------------------------------------
+provider "helm" {
+  kubernetes = {
+    host                   = "https://${data.google_container_cluster.gke_cluster.endpoint}"
+    token                  = data.google_client_config.default.access_token
+    cluster_ca_certificate = base64decode(data.google_container_cluster.gke_cluster.master_auth[0].cluster_ca_certificate)
+  }
 }

@@ -28,7 +28,7 @@ resource "google_compute_instance" "redis_vm" {
   # Network interface
   network_interface {
     network = "default"
-    
+
     # Internal IP only (no external access)
     access_config {
       # Ephemeral external IP for setup, can be removed later
@@ -37,7 +37,7 @@ resource "google_compute_instance" "redis_vm" {
 
   # Service account
   service_account {
-    email  = google_service_account.redis_vm_sa.email
+    email = google_service_account.redis_vm_sa.email
     scopes = [
       "https://www.googleapis.com/auth/cloud-platform",
       "https://www.googleapis.com/auth/logging.write",

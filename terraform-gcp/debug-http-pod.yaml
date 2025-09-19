@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: debug-http
+  namespace: laravel-app
+  labels:
+    app: debug-http
+    component: frontend
+    mode: http
+spec:
+  restartPolicy: Never
+  imagePullSecrets:
+    - name: github-registry-secret
+  containers:
+    - name: laravel-http
+      image: ghcr.io/zyoshu-inc/zyoshu-modular:latest
+      imagePullPolicy: Always
+      ports:
+        - containerPort: 8000
+          name: http
+      envFrom:
+        - secretRef:
+            name: laravel-secrets
+        - configMapRef:
+            name: laravel-config
+      env:
+        - name: CONTAINER_MODE
+          value: "http"
+        - name: OCTANE_SERVER
+          value: "frankenphp"
+      resources:
+        requests:
+          memory: "512Mi"
+          cpu: "100m"
+        limits:
+          memory: "2Gi"
+          cpu: "300m"
+      # No health checks - let it run and see what happens

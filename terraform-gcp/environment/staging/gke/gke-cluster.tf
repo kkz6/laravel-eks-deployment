@@ -25,7 +25,7 @@ resource "google_container_cluster" "laravel_cluster" {
   min_master_version = var.kubernetes_version
 
   # Network configuration
-  network    = "default"  # Using default VPC for simplicity
+  network    = "default" # Using default VPC for simplicity
   subnetwork = null
 
   # IP allocation for pods and services
@@ -56,19 +56,19 @@ resource "google_container_cluster" "laravel_cluster" {
     http_load_balancing {
       disabled = false
     }
-    
+
     horizontal_pod_autoscaling {
       disabled = false
     }
-    
+
     network_policy_config {
       disabled = false
     }
-    
+
     gcp_filestore_csi_driver_config {
       enabled = false
     }
-    
+
     gcs_fuse_csi_driver_config {
       enabled = false
     }
@@ -100,18 +100,18 @@ resource "google_container_cluster" "laravel_cluster" {
 #  Primary Node Pool
 # --------------------------------------------------------------------------
 resource "google_container_node_pool" "laravel_nodes" {
-  name       = "laravel-nodes-${var.environment[local.env]}"
-  location   = var.gcp_region
-  cluster    = google_container_cluster.laravel_cluster.name
-  
+  name     = "laravel-nodes-${var.environment[local.env]}"
+  location = var.gcp_region
+  cluster  = google_container_cluster.laravel_cluster.name
+
   # Node count and autoscaling (environment-specific)
   initial_node_count = var.environment[local.env] == "prod" ? var.node_count : 1
-  
+
   dynamic "autoscaling" {
     for_each = var.enable_autoscaling ? [1] : []
     content {
       min_node_count = 1
-      max_node_count = var.environment[local.env] == "prod" ? 3 : 2  # Allow staging to scale to 2 nodes
+      max_node_count = var.environment[local.env] == "prod" ? 3 : 2 # Allow staging to scale to 2 nodes
     }
   }
 
@@ -206,13 +206,13 @@ resource "google_project_iam_member" "gke_nodes_monitoring_viewer" {
 resource "google_compute_firewall" "allow_gke_to_cloudsql" {
   name    = "allow-gke-pods-to-cloudsql-${var.environment[local.env]}"
   network = "default"
-  
+
   allow {
     protocol = "tcp"
     ports    = ["3306"]
   }
-  
-  source_ranges = ["10.1.0.0/16"]  # GKE pod CIDR
-  
+
+  source_ranges = ["10.1.0.0/16"] # GKE pod CIDR
+
   description = "Allow GKE pods to access Cloud SQL"
 }

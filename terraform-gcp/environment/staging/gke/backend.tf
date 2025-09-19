@@ -9,7 +9,7 @@
 
 terraform {
   backend "gcs" {
-    bucket = "laravel-gcp-terraform-state-stg"  # This should match your environment
+    bucket = "laravel-gcp-terraform-state-stg" # This should match your environment
     prefix = "gke/terraform.tfstate"
   }
 }

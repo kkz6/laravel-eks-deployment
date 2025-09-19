@@ -48,20 +48,20 @@ resource "kubernetes_secret" "laravel_secrets" {
   data = {
     # Database configuration
     DB_CONNECTION = "mysql"
-    DB_HOST      = local.db_host
-    DB_PORT      = "3306"
-    DB_DATABASE  = local.db_name
-    DB_USERNAME  = local.db_user
-    DB_PASSWORD  = local.db_password
-    
+    DB_HOST       = local.db_host
+    DB_PORT       = "3306"
+    DB_DATABASE   = local.db_name
+    DB_USERNAME   = local.db_user
+    DB_PASSWORD   = local.db_password
+
     # Redis configuration
     REDIS_HOST     = local.redis_host
     REDIS_PORT     = "6379"
-    REDIS_PASSWORD = ""  # Redis VM doesn't have auth by default
-    
+    REDIS_PASSWORD = "" # Redis VM doesn't have auth by default
+
     # Laravel configuration
     APP_KEY = var.app_key
-    
+
     # GitHub Container Registry
     GITHUB_USERNAME = var.github_username
     GITHUB_TOKEN    = var.github_token
@@ -112,19 +112,19 @@ resource "kubernetes_config_map" "laravel_config" {
 
   data = {
     # Application configuration
-    APP_ENV   = var.app_env
-    APP_DEBUG = tostring(var.app_debug)
+    APP_ENV     = var.app_env
+    APP_DEBUG   = tostring(var.app_debug)
     LOG_CHANNEL = "stderr"
-    TZ = "UTC"
-    
+    TZ          = "UTC"
+
     # Multi-tenant configuration
-    BASE_DOMAIN = var.base_domain
-    APP_SUBDOMAIN = var.app_subdomain
+    BASE_DOMAIN            = var.base_domain
+    APP_SUBDOMAIN          = var.app_subdomain
     TENANT_ROUTING_ENABLED = "true"
-    
+
     # Queue configuration
     QUEUE_CONNECTION = "redis"
-    
+
     # Migration configuration (for first deployment)
     RUNNING_MIGRATIONS_AND_SEEDERS = var.run_migrations ? "true" : ""
   }
@@ -171,20 +171,20 @@ resource "kubernetes_deployment" "laravel_http" {
         }
 
         container {
-          name  = "laravel-http"
-          image = var.docker_image
+          name              = "laravel-http"
+          image             = var.docker_image
           image_pull_policy = "Always"
 
           port {
             container_port = var.frankenphp_port
-            name          = "http"
+            name           = "http"
           }
 
           env {
             name  = "CONTAINER_MODE"
             value = "http"
           }
-          
+
           env {
             name  = "OCTANE_SERVER"
             value = "frankenphp"
@@ -274,7 +274,7 @@ resource "kubernetes_deployment" "laravel_scheduler" {
     replicas = 1
 
     strategy {
-      type = "Recreate"  # Ensure only one scheduler runs at a time
+      type = "Recreate" # Ensure only one scheduler runs at a time
     }
 
     selector {
@@ -299,8 +299,8 @@ resource "kubernetes_deployment" "laravel_scheduler" {
         }
 
         container {
-          name  = "laravel-scheduler"
-          image = var.docker_image
+          name              = "laravel-scheduler"
+          image             = var.docker_image
           image_pull_policy = "Always"
 
           env {
@@ -403,8 +403,8 @@ resource "kubernetes_deployment" "laravel_horizon" {
         }
 
         container {
-          name  = "laravel-horizon"
-          image = var.docker_image
+          name              = "laravel-horizon"
+          image             = var.docker_image
           image_pull_policy = "Always"
 
           env {
@@ -542,20 +542,20 @@ resource "kubernetes_horizontal_pod_autoscaler_v2" "laravel_http_hpa" {
     behavior {
       scale_down {
         stabilization_window_seconds = 300
-        select_policy = "Min"
+        select_policy                = "Min"
         policy {
-          type          = "Percent"
-          value         = 10
+          type           = "Percent"
+          value          = 10
           period_seconds = 60
         }
       }
 
       scale_up {
         stabilization_window_seconds = 60
-        select_policy = "Max"
+        select_policy                = "Max"
         policy {
-          type          = "Percent"
-          value         = 50
+          type           = "Percent"
+          value          = 50
           period_seconds = 60
         }
       }
@@ -609,20 +609,20 @@ resource "kubernetes_horizontal_pod_autoscaler_v2" "laravel_horizon_hpa" {
     behavior {
       scale_down {
         stabilization_window_seconds = 300
-        select_policy = "Min"
+        select_policy                = "Min"
         policy {
-          type          = "Percent"
-          value         = 25
+          type           = "Percent"
+          value          = 25
           period_seconds = 60
         }
       }
 
       scale_up {
         stabilization_window_seconds = 60
-        select_policy = "Max"
+        select_policy                = "Max"
         policy {
-          type          = "Percent"
-          value         = 100
+          type           = "Percent"
+          value          = 100
           period_seconds = 60
         }
       }
@@ -643,12 +643,12 @@ resource "kubernetes_ingress_v1" "laravel_ingress" {
       app = "laravel-ingress"
     }
     annotations = {
-      "kubernetes.io/ingress.class"                   = "gce"
-      "kubernetes.io/ingress.global-static-ip-name"   = "laravel-ip-${var.environment[local.env]}"
-      "networking.gke.io/managed-certificates"        = google_compute_managed_ssl_certificate.laravel_ssl_cert.name
-      "kubernetes.io/ingress.allow-http"              = "true"
-      "nginx.ingress.kubernetes.io/rewrite-target"    = "/"
-      "nginx.ingress.kubernetes.io/ssl-redirect"      = "true"
+      "kubernetes.io/ingress.class"                 = "gce"
+      "kubernetes.io/ingress.global-static-ip-name" = "laravel-ip-${var.environment[local.env]}"
+      "networking.gke.io/managed-certificates"      = google_compute_managed_ssl_certificate.laravel_ssl_cert.name
+      "kubernetes.io/ingress.allow-http"            = "true"
+      "nginx.ingress.kubernetes.io/rewrite-target"  = "/"
+      "nginx.ingress.kubernetes.io/ssl-redirect"    = "true"
     }
   }
 
@@ -722,7 +722,7 @@ resource "google_compute_global_address" "laravel_ingress_ip" {
   name         = "laravel-ip-${var.environment[local.env]}"
   description  = "Static IP for Laravel Kubernetes Ingress"
   address_type = "EXTERNAL"
-  
+
   lifecycle {
     prevent_destroy = true
   }
