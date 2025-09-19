@@ -54,11 +54,56 @@ print_header() {
 check_requirements() {
     echo -e "${YELLOW}Checking requirements...${NC}"
     
+    # Detect OS
+    OS=$(uname -s)
+    ARCH=$(uname -m)
+    echo -e "${CYAN}Detected OS: $OS $ARCH${NC}"
+    
     # Check if gcloud is installed
     if ! command -v gcloud &> /dev/null; then
         echo -e "${RED}Error: Google Cloud SDK is not installed${NC}"
-        echo -e "${YELLOW}Install with: brew install google-cloud-sdk${NC}"
+        case $OS in
+            "Darwin")
+                echo -e "${YELLOW}Install with: brew install google-cloud-sdk${NC}"
+                echo -e "${YELLOW}Or download from: https://cloud.google.com/sdk/docs/install-sdk${NC}"
+                ;;
+            "Linux")
+                echo -e "${YELLOW}Install with:${NC}"
+                echo -e "${CYAN}  curl -O https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-linux-x86_64.tar.gz${NC}"
+                echo -e "${CYAN}  tar -xf google-cloud-cli-linux-x86_64.tar.gz${NC}"
+                echo -e "${CYAN}  ./google-cloud-sdk/install.sh${NC}"
+                ;;
+            *)
+                echo -e "${YELLOW}Visit: https://cloud.google.com/sdk/docs/install${NC}"
+                ;;
+        esac
         exit 1
+    fi
+    
+    # Check if terraform is installed
+    if ! command -v terraform &> /dev/null; then
+        echo -e "${RED}Error: Terraform is not installed${NC}"
+        case $OS in
+            "Darwin")
+                echo -e "${YELLOW}Install with: brew install terraform${NC}"
+                ;;
+            "Linux")
+                echo -e "${YELLOW}Install with:${NC}"
+                echo -e "${CYAN}  wget -O- https://apt.releases.hashicorp.com/gpg | sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg${NC}"
+                echo -e "${CYAN}  echo \"deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com \$(lsb_release -cs) main\" | sudo tee /etc/apt/sources.list.d/hashicorp.list${NC}"
+                echo -e "${CYAN}  sudo apt update && sudo apt install terraform${NC}"
+                ;;
+            *)
+                echo -e "${YELLOW}Visit: https://www.terraform.io/downloads${NC}"
+                ;;
+        esac
+        exit 1
+    fi
+    
+    # Check if kubectl is installed
+    if ! command -v kubectl &> /dev/null; then
+        echo -e "${YELLOW}kubectl not found - will install via gcloud components${NC}"
+        gcloud components install kubectl --quiet
     fi
     
     # Check if authenticated
@@ -192,6 +237,63 @@ setup_authentication() {
     fi
 }
 
+install_gke_auth_plugin() {
+    echo -e "${YELLOW}Setting up GKE authentication plugin...${NC}"
+    
+    # Check if gke-gcloud-auth-plugin is available
+    if command -v gke-gcloud-auth-plugin &> /dev/null; then
+        echo -e "${GREEN}✓ gke-gcloud-auth-plugin already installed${NC}"
+        return
+    fi
+    
+    # Install the plugin
+    echo -e "${CYAN}Installing gke-gcloud-auth-plugin...${NC}"
+    gcloud components install gke-gcloud-auth-plugin --quiet
+    
+    # Find the plugin location and add to PATH
+    GCLOUD_SDK_PATH=$(gcloud info --format="value(installation.sdk_root)")
+    if [ -n "$GCLOUD_SDK_PATH" ]; then
+        PLUGIN_PATH="$GCLOUD_SDK_PATH/bin"
+        echo -e "${CYAN}Adding $PLUGIN_PATH to PATH...${NC}"
+        
+        # Add to current session
+        export PATH="$PLUGIN_PATH:$PATH"
+        
+        # Add to shell profile for persistence
+        SHELL_NAME=$(basename "$SHELL")
+        case $SHELL_NAME in
+            "bash")
+                PROFILE_FILE="$HOME/.bashrc"
+                if [ ! -f "$PROFILE_FILE" ]; then
+                    PROFILE_FILE="$HOME/.bash_profile"
+                fi
+                ;;
+            "zsh")
+                PROFILE_FILE="$HOME/.zshrc"
+                ;;
+            *)
+                PROFILE_FILE="$HOME/.profile"
+                ;;
+        esac
+        
+        # Add PATH export to profile if not already present
+        if [ -f "$PROFILE_FILE" ] && ! grep -q "gke-gcloud-auth-plugin" "$PROFILE_FILE"; then
+            echo "" >> "$PROFILE_FILE"
+            echo "# Added by Laravel GCP setup script" >> "$PROFILE_FILE"
+            echo "export PATH=\"$PLUGIN_PATH:\$PATH\"" >> "$PROFILE_FILE"
+            echo -e "${GREEN}✓ Added to $PROFILE_FILE${NC}"
+        fi
+    fi
+    
+    # Verify installation
+    if command -v gke-gcloud-auth-plugin &> /dev/null; then
+        echo -e "${GREEN}✓ gke-gcloud-auth-plugin installed and available${NC}"
+    else
+        echo -e "${YELLOW}⚠ Plugin installed but may need manual PATH setup${NC}"
+        echo -e "${CYAN}Manual setup: export PATH=\"$PLUGIN_PATH:\$PATH\"${NC}"
+    fi
+}
+
 create_terraform_service_account() {
     echo -e "${YELLOW}Creating Terraform service account (optional)...${NC}"
     
@@ -213,10 +315,12 @@ create_terraform_service_account() {
     echo -e "${CYAN}Granting IAM roles...${NC}"
     ROLES=(
         "roles/compute.admin"
+        "roles/container.admin"
         "roles/cloudsql.admin"
         "roles/storage.admin"
         "roles/iam.serviceAccountUser"
         "roles/resourcemanager.projectEditor"
+        "roles/servicenetworking.networksAdmin"
     )
     
     for role in "${ROLES[@]}"; do
@@ -262,24 +366,33 @@ show_next_steps() {
     echo -e "${BLUE}  Setup Complete! Next Steps:${NC}"
     echo -e "${BLUE}============================================${NC}"
     echo ""
-    echo -e "${CYAN}1. Deploy Infrastructure:${NC}"
+    echo -e "${CYAN}1. Deploy Kubernetes Infrastructure:${NC}"
     echo -e "   cd terraform-gcp"
     echo -e "   ./deploy.sh -p $PROJECT_ID -e staging -a apply"
     echo ""
-    echo -e "${CYAN}2. Get Load Balancer IP:${NC}"
-    echo -e "   terraform output load_balancer_ip"
+    echo -e "${CYAN}2. Check Kubernetes Deployment:${NC}"
+    echo -e "   kubectl get pods -n laravel-app"
+    echo -e "   kubectl get ingress -n laravel-app"
     echo ""
     echo -e "${CYAN}3. Configure Cloudflare DNS:${NC}"
-    echo -e "   Add A records pointing to your load balancer IP"
+    echo -e "   Get ingress IP: kubectl get ingress -n laravel-app"
+    echo -e "   Add A records: app.zyoshu.com and *.app.zyoshu.com"
     echo ""
-    echo -e "${CYAN}4. Test Your Application:${NC}"
+    echo -e "${CYAN}4. Test Your Multi-Tenant Application:${NC}"
     echo -e "   https://app.zyoshu.com"
     echo -e "   https://tenant1.app.zyoshu.com"
     echo ""
+    echo -e "${YELLOW}Important PATH Setup:${NC}"
+    GCLOUD_SDK_PATH=$(gcloud info --format="value(installation.sdk_root)" 2>/dev/null || echo "")
+    if [ -n "$GCLOUD_SDK_PATH" ]; then
+        echo -e "   Add to your shell profile: export PATH=\"$GCLOUD_SDK_PATH/bin:\$PATH\""
+    fi
+    echo ""
     echo -e "${YELLOW}Documentation:${NC}"
     echo -e "   README.md - Main documentation"
+    echo -e "   KUBERNETES-DEPLOYMENT.md - Kubernetes guide"
+    echo -e "   VPC-ONLY-CLOUDSQL.md - Database security guide"
     echo -e "   CLOUDFLARE-SETUP.md - DNS configuration guide"
-    echo -e "   DATABASE-COST-OPTIMIZATION.md - Cost optimization tips"
     echo ""
 }
 
@@ -338,6 +451,7 @@ sleep 10
 
 check_quotas
 setup_authentication
+install_gke_auth_plugin
 create_terraform_service_account
 verify_setup
 show_next_steps

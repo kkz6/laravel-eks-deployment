@@ -97,14 +97,40 @@ output "deployment_architecture" {
   }
 }
 
+output "ingress_ip" {
+  description = "Static IP address for the Kubernetes ingress"
+  value       = google_compute_global_address.laravel_ingress_ip.address
+}
+
+output "application_urls" {
+  description = "URLs for the multi-tenant Laravel application"
+  value = {
+    main_app = var.base_domain != "" ? "https://${var.app_subdomain}.${var.base_domain}" : "http://${google_compute_global_address.laravel_ingress_ip.address}"
+    tenant_example = var.base_domain != "" ? "https://tenant1.${var.app_subdomain}.${var.base_domain}" : null
+  }
+}
+
+output "kubernetes_resources" {
+  description = "Deployed Kubernetes resources"
+  value = {
+    namespace = kubernetes_namespace.laravel_app.metadata[0].name
+    deployments = {
+      http      = kubernetes_deployment.laravel_http.metadata[0].name
+      scheduler = kubernetes_deployment.laravel_scheduler.metadata[0].name
+      horizon   = kubernetes_deployment.laravel_horizon.metadata[0].name
+    }
+    service = kubernetes_service.laravel_http_service.metadata[0].name
+    ingress = kubernetes_ingress_v1.laravel_ingress.metadata[0].name
+  }
+}
+
 output "next_steps" {
   description = "Next steps after infrastructure deployment"
   value = {
     step_1 = "Configure kubectl: ${local.kubectl_config_command}"
-    step_2 = "Update secrets in k8s-manifests/secrets.yaml"
-    step_3 = "Deploy manifests: kubectl apply -f k8s-manifests/"
-    step_4 = "Check pods: kubectl get pods -n laravel-app"
-    step_5 = "Get ingress IP: kubectl get ingress -n laravel-app"
+    step_2 = "Check pods: kubectl get pods -n laravel-app"
+    step_3 = "Configure Cloudflare DNS with IP: ${google_compute_global_address.laravel_ingress_ip.address}"
+    step_4 = "Test application: https://${var.app_subdomain}.${var.base_domain}"
   }
 }
 

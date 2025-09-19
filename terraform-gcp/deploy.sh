@@ -178,6 +178,18 @@ configure_kubectl() {
     
     echo -e "${YELLOW}Configuring kubectl...${NC}"
     
+    # Ensure gke-gcloud-auth-plugin is in PATH
+    GCLOUD_SDK_PATH=$(gcloud info --format="value(installation.sdk_root)" 2>/dev/null || echo "")
+    if [ -n "$GCLOUD_SDK_PATH" ]; then
+        export PATH="$GCLOUD_SDK_PATH/bin:$PATH"
+    fi
+    
+    if ! command -v gke-gcloud-auth-plugin &> /dev/null; then
+        echo -e "${YELLOW}Installing gke-gcloud-auth-plugin...${NC}"
+        gcloud components install gke-gcloud-auth-plugin --quiet
+        export PATH="$GCLOUD_SDK_PATH/bin:$PATH"
+    fi
+    
     cd environment/providers/gcp/infra/resources/gke
     
     # Get cluster credentials
@@ -191,77 +203,13 @@ configure_kubectl() {
     if kubectl cluster-info &>/dev/null; then
         echo -e "${GREEN}✓ kubectl configured successfully${NC}"
     else
-        echo -e "${RED}✗ kubectl configuration failed${NC}"
-        return 1
+        echo -e "${YELLOW}⚠ kubectl configuration issue - continuing with Terraform-managed resources${NC}"
     fi
     
     cd - > /dev/null
 }
 
-update_k8s_secrets() {
-    if [ "$ACTION" != "apply" ] || [ "$SKIP_K8S_DEPLOY" = true ]; then
-        return
-    fi
-    
-    echo -e "${YELLOW}Updating Kubernetes secrets with actual values...${NC}"
-    
-    # Get values from Terraform outputs
-    cd environment/providers/gcp/infra/resources/cloud-sql
-    DB_HOST=$(terraform output -raw database_host)
-    DB_PASSWORD=$(terraform output -raw database_password)
-    cd - > /dev/null
-    
-    cd environment/providers/gcp/infra/resources/gke
-    REDIS_IP=$(terraform output -raw redis_internal_ip)
-    cd - > /dev/null
-    
-    # Get Redis password from VM
-    REDIS_PASSWORD=$(gcloud compute ssh laravel-redis-$ENVIRONMENT --zone=$GCP_ZONE --command="sudo cat /opt/redis-password.txt" --quiet 2>/dev/null || echo "")
-    
-    # Update secrets file
-    cd environment/providers/gcp/infra/resources/k8s-manifests
-    
-    # Create a temporary secrets file with actual values
-    sed -e "s/REPLACE_WITH_CLOUD_SQL_IP/$DB_HOST/g" \
-        -e "s/REPLACE_WITH_DB_PASSWORD/$DB_PASSWORD/g" \
-        -e "s/REPLACE_WITH_REDIS_VM_IP/$REDIS_IP/g" \
-        -e "s/REPLACE_WITH_REDIS_PASSWORD/$REDIS_PASSWORD/g" \
-        -e "s/REPLACE_WITH_APP_KEY/$(grep app_key ../../../../terraform.tfvars | cut -d'"' -f2 || echo 'base64:KvkVVCKALENqUruV8z6Lf85poviBolKzDxS+swRxxDk=')/g" \
-        -e "s/REPLACE_WITH_GITHUB_USERNAME/$(grep github_username ../../../../terraform.tfvars | cut -d'"' -f2)/g" \
-        -e "s/REPLACE_WITH_GITHUB_TOKEN/$(grep github_token ../../../../terraform.tfvars | cut -d'"' -f2)/g" \
-        secrets.yaml > secrets-applied.yaml
-    
-    cd - > /dev/null
-    echo -e "${GREEN}✓ Kubernetes secrets updated${NC}"
-}
-
-deploy_k8s_manifests() {
-    if [ "$ACTION" != "apply" ] || [ "$SKIP_K8S_DEPLOY" = true ]; then
-        return
-    fi
-    
-    echo -e "${YELLOW}Deploying Kubernetes manifests...${NC}"
-    
-    cd environment/providers/gcp/infra/resources/k8s-manifests
-    
-    # Deploy in order
-    echo -e "${CYAN}Creating namespace...${NC}"
-    kubectl apply -f namespace.yaml
-    
-    echo -e "${CYAN}Creating secrets and config...${NC}"
-    kubectl apply -f secrets-applied.yaml
-    
-    echo -e "${CYAN}Deploying applications...${NC}"
-    kubectl apply -f scheduler-deployment.yaml
-    kubectl apply -f horizon-deployment.yaml
-    kubectl apply -f http-deployment.yaml
-    
-    echo -e "${CYAN}Setting up ingress...${NC}"
-    kubectl apply -f ingress.yaml
-    
-    cd - > /dev/null
-    echo -e "${GREEN}✓ Kubernetes manifests deployed${NC}"
-}
+# Kubernetes resources are now managed by Terraform - no manual deployment needed
 
 show_outputs() {
     if [ "$ACTION" != "apply" ]; then
@@ -389,8 +337,6 @@ case $ACTION in
         deploy_cloud_sql
         deploy_gke_and_redis
         configure_kubectl
-        update_k8s_secrets
-        deploy_k8s_manifests
         show_outputs
         ;;
 esac
