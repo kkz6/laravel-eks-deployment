@@ -144,7 +144,7 @@ resource "kubernetes_deployment" "laravel_http" {
   }
 
   spec {
-    replicas = 2
+    replicas = var.environment[local.env] == "prod" ? 2 : 1
 
     selector {
       match_labels = {
@@ -503,8 +503,8 @@ resource "kubernetes_horizontal_pod_autoscaler_v2" "laravel_http_hpa" {
       name        = kubernetes_deployment.laravel_http.metadata[0].name
     }
 
-    min_replicas = 2
-    max_replicas = 10
+    min_replicas = var.environment[local.env] == "prod" ? 2 : 1
+    max_replicas = var.environment[local.env] == "prod" ? 10 : 3
 
     metric {
       type = "Resource"
@@ -569,7 +569,7 @@ resource "kubernetes_horizontal_pod_autoscaler_v2" "laravel_horizon_hpa" {
     }
 
     min_replicas = 1
-    max_replicas = 5
+    max_replicas = var.environment[local.env] == "prod" ? 5 : 2
 
     metric {
       type = "Resource"

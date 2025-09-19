@@ -104,14 +104,14 @@ resource "google_container_node_pool" "laravel_nodes" {
   location   = var.gcp_region
   cluster    = google_container_cluster.laravel_cluster.name
   
-  # Node count and autoscaling
-  initial_node_count = var.node_count
+  # Node count and autoscaling (environment-specific)
+  initial_node_count = var.environment[local.env] == "prod" ? var.node_count : 1
   
   dynamic "autoscaling" {
-    for_each = var.enable_autoscaling ? [1] : []
+    for_each = var.environment[local.env] == "prod" && var.enable_autoscaling ? [1] : []
     content {
-      min_node_count = var.min_node_count
-      max_node_count = var.max_node_count
+      min_node_count = var.environment[local.env] == "prod" ? 1 : 1
+      max_node_count = var.environment[local.env] == "prod" ? 3 : 1
     }
   }
 
