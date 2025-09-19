@@ -184,6 +184,11 @@ resource "kubernetes_deployment" "laravel_http" {
             name  = "CONTAINER_MODE"
             value = "http"
           }
+          
+          env {
+            name  = "OCTANE_SERVER"
+            value = "frankenphp"
+          }
 
           env_from {
             secret_ref {
