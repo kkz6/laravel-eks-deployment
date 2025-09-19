@@ -328,4 +328,16 @@ variable "frankenphp_port" {
   default     = 8000
 }
 
+variable "enable_https" {
+  type        = bool
+  description = "Enable HTTPS"
+  default     = true
+}
+
+variable "tenant_routing_enabled" {
+  type        = bool
+  description = "Enable tenant-based routing"
+  default     = true
+}
+
 

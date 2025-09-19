@@ -34,10 +34,4 @@ provider "kubernetes" {
   ignore_annotations = [
     "kubectl.kubernetes.io/last-applied-configuration"
   ]
-  
-  # Ensure cluster is ready before connecting
-  exec {
-    api_version = "client.authentication.k8s.io/v1beta1"
-    command     = "gke-gcloud-auth-plugin"
-  }
 }

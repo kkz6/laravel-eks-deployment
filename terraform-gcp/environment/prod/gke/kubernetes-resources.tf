@@ -172,7 +172,7 @@ resource "kubernetes_deployment" "laravel_http" {
           image = var.docker_image
 
           port {
-            container_port = 80
+            container_port = var.frankenphp_port
             name          = "http"
           }
 
@@ -207,7 +207,7 @@ resource "kubernetes_deployment" "laravel_http" {
           liveness_probe {
             http_get {
               path = "/health"
-              port = 80
+              port = var.frankenphp_port
             }
             initial_delay_seconds = 60
             period_seconds        = 30
@@ -218,7 +218,7 @@ resource "kubernetes_deployment" "laravel_http" {
           readiness_probe {
             http_get {
               path = "/health"
-              port = 80
+              port = var.frankenphp_port
             }
             initial_delay_seconds = 30
             period_seconds        = 10
@@ -477,14 +477,7 @@ resource "kubernetes_service" "laravel_http_service" {
     port {
       name        = "http"
       port        = 80
-      target_port = 80
-      protocol    = "TCP"
-    }
-
-    port {
-      name        = "https"
-      port        = 443
-      target_port = 443
+      target_port = var.frankenphp_port
       protocol    = "TCP"
     }
 
@@ -637,7 +630,7 @@ resource "kubernetes_ingress_v1" "laravel_ingress" {
     annotations = {
       "kubernetes.io/ingress.class"                   = "gce"
       "kubernetes.io/ingress.global-static-ip-name"   = "laravel-ip-${var.environment[local.env]}"
-      "networking.gke.io/managed-certificates"        = kubernetes_manifest.laravel_ssl_cert.manifest.metadata.name
+      "networking.gke.io/managed-certificates"        = google_compute_managed_ssl_certificate.laravel_ssl_cert.name
       "kubernetes.io/ingress.allow-http"              = "true"
       "nginx.ingress.kubernetes.io/rewrite-target"    = "/"
       "nginx.ingress.kubernetes.io/ssl-redirect"      = "true"
@@ -684,34 +677,27 @@ resource "kubernetes_ingress_v1" "laravel_ingress" {
 
   depends_on = [
     kubernetes_service.laravel_http_service,
-    kubernetes_manifest.laravel_ssl_cert
+    google_compute_managed_ssl_certificate.laravel_ssl_cert
   ]
 }
 
 # --------------------------------------------------------------------------
-#  Managed SSL Certificate
+#  Managed SSL Certificate (using Google Cloud resource instead of k8s manifest)
 # --------------------------------------------------------------------------
-resource "kubernetes_manifest" "laravel_ssl_cert" {
-  manifest = {
-    apiVersion = "networking.gke.io/v1"
-    kind       = "ManagedCertificate"
-    metadata = {
-      name      = "laravel-ssl-cert"
-      namespace = kubernetes_namespace.laravel_app.metadata[0].name
-    }
-    spec = {
-      domains = [
-        "${var.app_subdomain}.${var.base_domain}"
-        # Note: Wildcard domains not supported by Google Managed Certificates
-        # Use Cloudflare SSL for wildcard support
-      ]
-    }
+resource "google_compute_managed_ssl_certificate" "laravel_ssl_cert" {
+  name = "laravel-ssl-cert-${var.environment[local.env]}"
+
+  managed {
+    domains = [
+      "${var.app_subdomain}.${var.base_domain}"
+      # Note: Wildcard domains not supported by Google Managed Certificates
+      # Use Cloudflare SSL for wildcard support
+    ]
   }
 
-  depends_on = [
-    kubernetes_namespace.laravel_app,
-    google_container_node_pool.laravel_nodes
-  ]
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 # --------------------------------------------------------------------------

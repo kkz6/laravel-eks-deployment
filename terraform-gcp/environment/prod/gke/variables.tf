@@ -316,4 +316,28 @@ variable "require_ssl" {
   default     = true
 }
 
+variable "use_remote_state" {
+  type        = bool
+  description = "Use remote state"
+  default     = false
+}
+
+variable "frankenphp_port" {
+  type        = number
+  description = "Port that FrankenPHP serves on"
+  default     = 8000
+}
+
+variable "enable_https" {
+  type        = bool
+  description = "Enable HTTPS"
+  default     = true
+}
+
+variable "tenant_routing_enabled" {
+  type        = bool
+  description = "Enable tenant-based routing"
+  default     = true
+}
+
 
