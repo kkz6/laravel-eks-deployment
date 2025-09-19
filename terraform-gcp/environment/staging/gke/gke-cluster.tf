@@ -199,3 +199,20 @@ resource "google_project_iam_member" "gke_nodes_monitoring_viewer" {
   role    = "roles/monitoring.viewer"
   member  = "serviceAccount:${google_service_account.gke_nodes_sa.email}"
 }
+
+# --------------------------------------------------------------------------
+#  Firewall Rule: Allow GKE Pods to Access Cloud SQL
+# --------------------------------------------------------------------------
+resource "google_compute_firewall" "allow_gke_to_cloudsql" {
+  name    = "allow-gke-pods-to-cloudsql-${var.environment[local.env]}"
+  network = "default"
+  
+  allow {
+    protocol = "tcp"
+    ports    = ["3306"]
+  }
+  
+  source_ranges = ["10.1.0.0/16"]  # GKE pod CIDR
+  
+  description = "Allow GKE pods to access Cloud SQL"
+}

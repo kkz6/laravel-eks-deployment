@@ -124,6 +124,9 @@ resource "kubernetes_config_map" "laravel_config" {
     
     # Queue configuration
     QUEUE_CONNECTION = "redis"
+    
+    # Migration configuration (for first deployment)
+    RUNNING_MIGRATIONS_AND_SEEDERS = var.run_migrations ? "true" : ""
   }
 
   depends_on = [kubernetes_namespace.laravel_app]
@@ -170,6 +173,7 @@ resource "kubernetes_deployment" "laravel_http" {
         container {
           name  = "laravel-http"
           image = var.docker_image
+          image_pull_policy = "Always"
 
           port {
             container_port = var.frankenphp_port
@@ -195,12 +199,12 @@ resource "kubernetes_deployment" "laravel_http" {
 
           resources {
             requests = {
-              memory = "256Mi"
-              cpu    = "200m"
+              memory = "64Mi"
+              cpu    = "50m"
             }
             limits = {
-              memory = "512Mi"
-              cpu    = "500m"
+              memory = "128Mi"
+              cpu    = "200m"
             }
           }
 
@@ -292,6 +296,7 @@ resource "kubernetes_deployment" "laravel_scheduler" {
         container {
           name  = "laravel-scheduler"
           image = var.docker_image
+          image_pull_policy = "Always"
 
           env {
             name  = "CONTAINER_MODE"
@@ -312,12 +317,12 @@ resource "kubernetes_deployment" "laravel_scheduler" {
 
           resources {
             requests = {
-              memory = "128Mi"
-              cpu    = "100m"
+              memory = "64Mi"
+              cpu    = "50m"
             }
             limits = {
-              memory = "256Mi"
-              cpu    = "300m"
+              memory = "128Mi"
+              cpu    = "200m"
             }
           }
 
@@ -395,6 +400,7 @@ resource "kubernetes_deployment" "laravel_horizon" {
         container {
           name  = "laravel-horizon"
           image = var.docker_image
+          image_pull_policy = "Always"
 
           env {
             name  = "CONTAINER_MODE"
@@ -415,12 +421,12 @@ resource "kubernetes_deployment" "laravel_horizon" {
 
           resources {
             requests = {
-              memory = "256Mi"
-              cpu    = "150m"
+              memory = "64Mi"
+              cpu    = "50m"
             }
             limits = {
-              memory = "512Mi"
-              cpu    = "400m"
+              memory = "128Mi"
+              cpu    = "200m"
             }
           }
 

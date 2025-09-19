@@ -54,6 +54,42 @@ Your Laravel application should be configured to:
 - All databases are accessible only via VPC (no public IP)
 - SSL encryption is available if enabled in configuration
 
+## First Deployment - Running Migrations
+
+For the first deployment, you need to run migrations and seeders:
+
+### Option 1: Using the Toggle Script
+
+```bash
+./toggle-migrations.sh enable
+./deploy.sh apply
+```
+
+### Option 2: Manual Configuration
+
+Set `run_migrations = true` in `terraform.tfvars`, then:
+
+```bash
+./deploy.sh apply
+```
+
+### After First Deployment
+
+Disable migrations for subsequent deployments:
+
+```bash
+./toggle-migrations.sh disable
+./deploy.sh apply
+```
+
+## Migration Environment Variable
+
+The system uses `RUNNING_MIGRATIONS_AND_SEEDERS=true` environment variable to:
+
+- Run database migrations
+- Execute database seeders
+- Set up initial tenant database structure
+
 ## Testing Database Privileges
 
 You can test if the privileges are working correctly:

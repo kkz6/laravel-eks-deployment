@@ -328,6 +328,12 @@ variable "frankenphp_port" {
   default     = 8000
 }
 
+variable "run_migrations" {
+  description = "Whether to run migrations and seeders on first deployment"
+  type        = bool
+  default     = false
+}
+
 variable "enable_https" {
   type        = bool
   description = "Enable HTTPS"

@@ -9,6 +9,10 @@
 # ==========================================================================
 
 # --------------------------------------------------------------------------
+#  Get Custom VPC Configuration (already defined in gke-cluster.tf)
+# --------------------------------------------------------------------------
+
+# --------------------------------------------------------------------------
 #  Redis VM Instance
 # --------------------------------------------------------------------------
 resource "google_compute_instance" "redis_vm" {
@@ -25,14 +29,12 @@ resource "google_compute_instance" "redis_vm" {
     }
   }
 
-  # Network interface
+  # Network interface - Using custom VPC for production
   network_interface {
-    network = "default"
+    network    = data.terraform_remote_state.vpc.outputs.vpc_name
+    subnetwork = data.terraform_remote_state.vpc.outputs.private_subnet_name
     
-    # Internal IP only (no external access)
-    access_config {
-      # Ephemeral external IP for setup, can be removed later
-    }
+    # No external IP for VPC-only access (NAT gateway provides internet access)
   }
 
   # Service account
@@ -53,8 +55,8 @@ resource "google_compute_instance" "redis_vm" {
     })
   }
 
-  # Network tags
-  tags = ["laravel-redis", "laravel-internal"]
+  # Network tags for VPC firewall rules
+  tags = ["redis-server", "ssh-allowed"]
 
   # Labels
   labels = merge(local.labels, {

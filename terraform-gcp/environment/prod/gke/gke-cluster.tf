@@ -9,6 +9,17 @@
 # ==========================================================================
 
 # --------------------------------------------------------------------------
+#  Get Custom VPC Configuration
+# --------------------------------------------------------------------------
+data "terraform_remote_state" "vpc" {
+  backend = "gcs"
+  config = {
+    bucket = "laravel-terraform-state-bucket"
+    prefix = "vpc"
+  }
+}
+
+# --------------------------------------------------------------------------
 #  GKE Cluster
 # --------------------------------------------------------------------------
 resource "google_container_cluster" "laravel_cluster" {
@@ -24,14 +35,14 @@ resource "google_container_cluster" "laravel_cluster" {
   # Kubernetes version
   min_master_version = var.kubernetes_version
 
-  # Network configuration
-  network    = "default"  # Using default VPC for simplicity
-  subnetwork = null
+  # Network configuration - Using custom VPC for production
+  network    = data.terraform_remote_state.vpc.outputs.vpc_name
+  subnetwork = data.terraform_remote_state.vpc.outputs.private_subnet_name
 
-  # IP allocation for pods and services
+  # IP allocation for pods and services - Using secondary ranges from custom VPC
   ip_allocation_policy {
-    cluster_ipv4_cidr_block  = "10.1.0.0/16"
-    services_ipv4_cidr_block = "10.2.0.0/16"
+    cluster_secondary_range_name  = data.terraform_remote_state.vpc.outputs.gke_pod_secondary_range_name
+    services_secondary_range_name = data.terraform_remote_state.vpc.outputs.gke_service_secondary_range_name
   }
 
   # Master auth configuration
@@ -199,3 +210,7 @@ resource "google_project_iam_member" "gke_nodes_monitoring_viewer" {
   role    = "roles/monitoring.viewer"
   member  = "serviceAccount:${google_service_account.gke_nodes_sa.email}"
 }
+
+# --------------------------------------------------------------------------
+#  Firewall rules are managed in the VPC module for production
+# --------------------------------------------------------------------------

@@ -109,6 +109,37 @@ deploy_terraform_state() {
     echo -e "${GREEN}✓ Terraform state setup completed${NC}"
 }
 
+deploy_vpc() {
+    echo -e "${YELLOW}Deploying custom VPC (Production only)...${NC}"
+    
+    cd environment/$ENVIRONMENT/vpc
+    
+    terraform init
+    
+    case $ACTION in
+        plan)
+            terraform plan -var="project_id=$PROJECT_ID"
+            ;;
+        apply)
+            if [ "$AUTO_APPROVE" = true ]; then
+                terraform apply -var="project_id=$PROJECT_ID" -auto-approve
+            else
+                terraform apply -var="project_id=$PROJECT_ID"
+            fi
+            ;;
+        destroy)
+            if [ "$AUTO_APPROVE" = true ]; then
+                terraform destroy -var="project_id=$PROJECT_ID" -auto-approve
+            else
+                terraform destroy -var="project_id=$PROJECT_ID"
+            fi
+            ;;
+    esac
+    
+    cd - > /dev/null
+    echo -e "${GREEN}✓ Custom VPC $ACTION completed${NC}"
+}
+
 deploy_cloud_sql() {
     echo -e "${YELLOW}Deploying Cloud SQL database...${NC}"
     
@@ -441,6 +472,12 @@ case $ACTION in
         ;;
     *)
         deploy_terraform_state
+        
+        # Deploy VPC for production only
+        if [ "$ENVIRONMENT" = "prod" ]; then
+            deploy_vpc
+        fi
+        
         deploy_cloud_sql
         deploy_gke_and_redis
         configure_kubectl

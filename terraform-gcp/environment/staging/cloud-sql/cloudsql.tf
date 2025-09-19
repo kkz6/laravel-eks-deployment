@@ -99,7 +99,7 @@ resource "google_sql_database_instance" "laravel_db_instance" {
       ipv4_enabled                                  = false  # Disable public IP
       private_network                              = data.google_compute_network.default.id
       enable_private_path_for_google_cloud_services = true
-      ssl_mode                                     = var.require_ssl ? "ENCRYPTED_ONLY" : "ALLOW_UNENCRYPTED_AND_ENCRYPTED"
+      ssl_mode                                     = "ALLOW_UNENCRYPTED_AND_ENCRYPTED"  # Allow non-SSL for initial setup
 
       # No authorized networks needed for private IP
     }

@@ -24,10 +24,14 @@ resource "random_password" "database_password" {
 }
 
 # --------------------------------------------------------------------------
-#  Get Default VPC for Private IP Configuration
+#  Get Custom VPC for Private IP Configuration
 # --------------------------------------------------------------------------
-data "google_compute_network" "default" {
-  name = "default"
+data "terraform_remote_state" "vpc" {
+  backend = "gcs"
+  config = {
+    bucket = "laravel-terraform-state-bucket"
+    prefix = "vpc"
+  }
 }
 
 # --------------------------------------------------------------------------
@@ -38,11 +42,11 @@ resource "google_compute_global_address" "private_ip_range" {
   purpose       = "VPC_PEERING"
   address_type  = "INTERNAL"
   prefix_length = 16
-  network       = data.google_compute_network.default.id
+  network       = data.terraform_remote_state.vpc.outputs.vpc_id
 }
 
 resource "google_service_networking_connection" "private_vpc_connection" {
-  network                 = data.google_compute_network.default.id
+  network                 = data.terraform_remote_state.vpc.outputs.vpc_id
   service                 = "servicenetworking.googleapis.com"
   reserved_peering_ranges = [google_compute_global_address.private_ip_range.name]
 
@@ -97,9 +101,9 @@ resource "google_sql_database_instance" "laravel_db_instance" {
     # IP configuration - Private IP only for VPC access
     ip_configuration {
       ipv4_enabled                                  = false  # Disable public IP
-      private_network                              = data.google_compute_network.default.id
+      private_network                              = data.terraform_remote_state.vpc.outputs.vpc_id
       enable_private_path_for_google_cloud_services = true
-      ssl_mode                                     = var.require_ssl ? "ENCRYPTED_ONLY" : "ALLOW_UNENCRYPTED_AND_ENCRYPTED"
+      ssl_mode                                     = "ALLOW_UNENCRYPTED_AND_ENCRYPTED"  # Allow non-SSL for initial setup
 
       # No authorized networks needed for private IP
     }
