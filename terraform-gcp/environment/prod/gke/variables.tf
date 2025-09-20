@@ -244,6 +244,48 @@ variable "app_debug" {
   default     = false
 }
 
+variable "app_url" {
+  type        = string
+  description = "Laravel application URL"
+  default     = "https://zyoshu.gig.codes"
+}
+
+variable "central_domain" {
+  type        = string
+  description = "Central domain for the application"
+  default     = "zyoshu.gig.codes"
+}
+
+variable "doc_extract_api_url" {
+  type        = string
+  description = "Document extraction API URL"
+  default     = "https://nxtract-production.up.railway.app"
+}
+
+variable "gcp_project_id" {
+  type        = string
+  description = "GCP Project ID for Document AI"
+  default     = "zyoshu"
+}
+
+variable "google_application_credentials" {
+  type        = string
+  description = "Path to Google Application Credentials file"
+  default     = "app/zyoshu-081683bde94e.json"
+}
+
+variable "document_ai_splitting_processor_id" {
+  type        = string
+  description = "Document AI Splitting Processor ID"
+  default     = "50c31ddf38a50aa6"
+}
+
+variable "document_ai_location" {
+  type        = string
+  description = "Document AI Location"
+  default     = "us"
+}
+
 # ------------------------------------
 #  Bucket Terraform State
 # ------------------------------------

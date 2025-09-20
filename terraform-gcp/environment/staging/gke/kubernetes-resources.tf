@@ -114,16 +114,25 @@ resource "kubernetes_config_map" "laravel_config" {
     # Application configuration
     APP_ENV     = var.app_env
     APP_DEBUG   = tostring(var.app_debug)
+    APP_URL     = var.app_url
     LOG_CHANNEL = "stderr"
     TZ          = "UTC"
 
     # Multi-tenant configuration
     BASE_DOMAIN            = var.base_domain
+    CENTRAL_DOMAIN         = var.central_domain
     APP_SUBDOMAIN          = var.app_subdomain
     TENANT_ROUTING_ENABLED = "true"
 
     # Queue configuration
     QUEUE_CONNECTION = "redis"
+
+    # Document AI configuration
+    DOC_EXTRACT_API_URL                = var.doc_extract_api_url
+    GCP_PROJECT_ID                     = var.gcp_project_id
+    GOOGLE_APPLICATION_CREDENTIALS     = var.google_application_credentials
+    DOCUMENT_AI_SPLITTING_PROCESSOR_ID = var.document_ai_splitting_processor_id
+    DOCUMENT_AI_LOCATION               = var.document_ai_location
 
     # Migration configuration (for first deployment)
     RUNNING_MIGRATIONS_AND_SEEDERS = var.run_migrations ? "true" : ""
