@@ -64,6 +64,16 @@ configMap:
       AWS_BUCKET=
       AWS_USE_PATH_STYLE_ENDPOINT=false
 
+      # Google Cloud Storage Configuration for Multi-Tenant
+      GOOGLE_CLOUD_PROJECT_ID=YOUR_PROJECT_ID
+      GOOGLE_CLOUD_STORAGE_BUCKET=your-project-laravel-shared-stg
+      GCS_BUCKET_PREFIX=tenant
+      GCS_BUCKET_LOCATION=US
+      GCS_STORAGE_CLASS=STANDARD
+      GOOGLE_CLOUD_STORAGE_PATH_PREFIX=
+      GOOGLE_CLOUD_STORAGE_API_URI=
+      GOOGLE_CLOUD_STORAGE_API_ENDPOINT=
+
       PUSHER_APP_ID=
       PUSHER_APP_KEY=
       PUSHER_APP_SECRET=
@@ -84,7 +94,8 @@ fullnameOverride: "laravel"
 
 serviceAccount:
   create: true
-  annotations: {}
+  annotations:
+    iam.gke.io/gcp-service-account: "laravel-gcs-stg@YOUR_PROJECT_ID.iam.gserviceaccount.com"  # Replace with your actual project ID
   name: laravel
   namespace: devopscorner-dev
 
@@ -159,6 +170,23 @@ application:
         secretKeyRef:
           key: password
           name: laravel-secret
+    # Google Cloud Storage Configuration
+    - name: GOOGLE_CLOUD_PROJECT_ID
+      value: 'YOUR_PROJECT_ID'  # Replace with your actual project ID
+    - name: GOOGLE_CLOUD_STORAGE_BUCKET
+      value: 'your-project-laravel-shared-stg'  # Replace with actual bucket name
+    - name: GCS_BUCKET_PREFIX
+      value: 'tenant'
+    - name: GCS_BUCKET_LOCATION
+      value: 'US'
+    - name: GCS_STORAGE_CLASS
+      value: 'STANDARD'
+    - name: GOOGLE_CLOUD_STORAGE_PATH_PREFIX
+      value: ''
+    - name: GOOGLE_CLOUD_STORAGE_API_URI
+      value: ''
+    - name: GOOGLE_CLOUD_STORAGE_API_ENDPOINT
+      value: ''
 
 resources:
   limits:

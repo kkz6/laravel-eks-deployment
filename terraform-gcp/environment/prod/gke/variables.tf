@@ -388,4 +388,31 @@ variable "tenant_routing_enabled" {
   default     = true
 }
 
+# ------------------------------------
+#  GCS Configuration
+# ------------------------------------
+variable "gcs_bucket_location" {
+  type        = string
+  description = "GCS bucket location"
+  default     = "US"
+}
+
+variable "gcs_storage_class" {
+  type        = string
+  description = "GCS storage class"
+  default     = "STANDARD"
+}
+
+variable "laravel_namespace" {
+  type        = string
+  description = "Kubernetes namespace for Laravel application"
+  default     = "devopscorner-dev"
+}
+
+variable "laravel_service_account_name" {
+  type        = string
+  description = "Kubernetes service account name for Laravel application"
+  default     = "laravel"
+}
+
 
