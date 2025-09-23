@@ -11,6 +11,7 @@ set -e
 # Variables from Terraform
 REDIS_VERSION="${redis_version}"
 ENVIRONMENT="${environment}"
+REDIS_PASSWORD="${redis_password}"
 
 # Log all output
 exec > >(tee /var/log/redis-setup.log) 2>&1
@@ -83,7 +84,7 @@ loglevel notice
 logfile /var/log/redis/redis-server.log
 
 # Security (basic)
-requirepass $(openssl rand -base64 32)
+requirepass $REDIS_PASSWORD
 
 # Performance
 tcp-keepalive 300
@@ -94,8 +95,7 @@ databases 16
 notify-keyspace-events Ex
 EOF
 
-# Get the generated password
-REDIS_PASSWORD=$(grep "requirepass" /etc/redis/redis.conf | cut -d' ' -f2)
+# Store the Redis password for reference
 echo "Redis password: $REDIS_PASSWORD" > /opt/redis-password.txt
 chmod 600 /opt/redis-password.txt
 

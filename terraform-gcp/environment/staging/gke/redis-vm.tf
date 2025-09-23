@@ -9,6 +9,15 @@
 # ==========================================================================
 
 # --------------------------------------------------------------------------
+#  Random Password for Redis (if not provided)
+# --------------------------------------------------------------------------
+resource "random_password" "redis_password" {
+  count   = var.redis_password == "" ? 1 : 0
+  length  = 32
+  special = true
+}
+
+# --------------------------------------------------------------------------
 #  Redis VM Instance
 # --------------------------------------------------------------------------
 resource "google_compute_instance" "redis_vm" {
@@ -48,13 +57,14 @@ resource "google_compute_instance" "redis_vm" {
   # Metadata and startup script
   metadata = {
     startup-script = templatefile("${path.module}/scripts/setup-redis.sh", {
-      redis_version = var.redis_version
-      environment   = var.environment[local.env]
+      redis_version  = var.redis_version
+      environment    = var.environment[local.env]
+      redis_password = var.redis_password != "" ? var.redis_password : random_password.redis_password[0].result
     })
   }
 
-  # Network tags
-  tags = ["laravel-redis", "laravel-internal"]
+  # Network tags - must match firewall rule target_tags
+  tags = ["redis-server", "ssh-allowed"]
 
   # Labels
   labels = merge(local.labels, {
@@ -92,10 +102,10 @@ resource "google_project_iam_member" "redis_vm_monitoring" {
 }
 
 # --------------------------------------------------------------------------
-#  Firewall Rule for Redis Access from GKE
+#  Firewall Rule for Redis Access from GKE Pods
 # --------------------------------------------------------------------------
-resource "google_compute_firewall" "allow_redis_from_gke" {
-  name    = "laravel-allow-redis-from-gke-${var.environment[local.env]}"
+resource "google_compute_firewall" "allow_gke_pods_to_redis" {
+  name    = "laravel-allow-gke-pods-to-redis-${var.environment[local.env]}"
   network = "default"
 
   allow {
@@ -103,9 +113,11 @@ resource "google_compute_firewall" "allow_redis_from_gke" {
     ports    = ["6379"]
   }
 
-  # Allow access from GKE nodes
-  source_tags = ["laravel-gke-node"]
-  target_tags = ["laravel-redis"]
+  # Allow access from GKE pod CIDR (not node tags)
+  source_ranges = ["10.1.0.0/16"] # GKE pod CIDR from cluster configuration
+  target_tags   = ["redis-server"]
+
+  description = "Allow GKE pods to connect to Redis VM"
 
   depends_on = [google_compute_instance.redis_vm]
 }

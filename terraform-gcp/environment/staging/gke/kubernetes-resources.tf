@@ -57,7 +57,7 @@ resource "kubernetes_secret" "laravel_secrets" {
     # Redis configuration
     REDIS_HOST     = local.redis_host
     REDIS_PORT     = "6379"
-    REDIS_PASSWORD = "" # Redis VM doesn't have auth by default
+    REDIS_PASSWORD = var.redis_password != "" ? var.redis_password : random_password.redis_password[0].result
 
     # Laravel configuration
     APP_KEY = var.app_key
@@ -485,6 +485,10 @@ resource "kubernetes_service" "laravel_http_service" {
     labels = {
       app       = "laravel-http"
       component = "frontend"
+    }
+    annotations = {
+      "cloud.google.com/neg"            = jsonencode({ ingress = true })
+      "cloud.google.com/backend-config" = jsonencode({ default = "laravel-backend-config" })
     }
   }
 
