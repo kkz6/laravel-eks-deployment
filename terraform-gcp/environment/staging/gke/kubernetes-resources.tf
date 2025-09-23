@@ -134,11 +134,46 @@ resource "kubernetes_config_map" "laravel_config" {
     DOCUMENT_AI_SPLITTING_PROCESSOR_ID = var.document_ai_splitting_processor_id
     DOCUMENT_AI_LOCATION               = var.document_ai_location
 
+    # Google Cloud Storage Configuration for Multi-Tenant
+    GOOGLE_CLOUD_PROJECT_ID            = var.project_id
+    GOOGLE_CLOUD_STORAGE_BUCKET        = "${var.project_id}-laravel-shared-${var.environment[local.env]}"
+    GCS_BUCKET_PREFIX                  = "tenant"
+    GCS_BUCKET_LOCATION                = var.gcs_bucket_location
+    GCS_STORAGE_CLASS                  = var.gcs_storage_class
+    GOOGLE_CLOUD_STORAGE_PATH_PREFIX   = ""
+    GOOGLE_CLOUD_STORAGE_API_URI       = ""
+    GOOGLE_CLOUD_STORAGE_API_ENDPOINT  = ""
+    # Note: GOOGLE_CLOUD_KEY_FILE not needed with Workload Identity
+
     # Migration configuration (for first deployment)
     RUNNING_MIGRATIONS_AND_SEEDERS = var.run_migrations ? "true" : ""
   }
 
   depends_on = [kubernetes_namespace.laravel_app]
+}
+
+# --------------------------------------------------------------------------
+#  Kubernetes Service Account with Workload Identity
+# --------------------------------------------------------------------------
+resource "kubernetes_service_account" "laravel_service_account" {
+  metadata {
+    name      = "laravel"
+    namespace = kubernetes_namespace.laravel_app.metadata[0].name
+    
+    annotations = {
+      "iam.gke.io/gcp-service-account" = google_service_account.laravel_gcs_sa.email
+    }
+    
+    labels = {
+      app         = "laravel"
+      environment = var.environment[local.env]
+    }
+  }
+
+  depends_on = [
+    kubernetes_namespace.laravel_app,
+    google_service_account.laravel_gcs_sa
+  ]
 }
 
 # --------------------------------------------------------------------------
@@ -175,6 +210,8 @@ resource "kubernetes_deployment" "laravel_http" {
       }
 
       spec {
+        service_account_name = kubernetes_service_account.laravel_service_account.metadata[0].name
+        
         image_pull_secrets {
           name = kubernetes_secret.github_registry_secret.metadata[0].name
         }
@@ -303,6 +340,8 @@ resource "kubernetes_deployment" "laravel_scheduler" {
       }
 
       spec {
+        service_account_name = kubernetes_service_account.laravel_service_account.metadata[0].name
+        
         image_pull_secrets {
           name = kubernetes_secret.github_registry_secret.metadata[0].name
         }
@@ -407,6 +446,8 @@ resource "kubernetes_deployment" "laravel_horizon" {
       }
 
       spec {
+        service_account_name = kubernetes_service_account.laravel_service_account.metadata[0].name
+        
         image_pull_secrets {
           name = kubernetes_secret.github_registry_secret.metadata[0].name
         }
