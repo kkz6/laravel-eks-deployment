@@ -1,0 +1,59 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    ingress.gcp.kubernetes.io/managed-certificates: wildcard-zyoshu-tls-secret
+    ingress.kubernetes.io/backends: '{"k8s-be-30788--d4a1797936168150":"HEALTHY","k8s-be-31792--d4a1797936168150":"UNHEALTHY"}'
+    ingress.kubernetes.io/forwarding-rule: k8s2-fr-jbsfzzr2-laravel-app-laravel-ingress-th98cuqw
+    ingress.kubernetes.io/https-forwarding-rule: k8s2-fs-jbsfzzr2-laravel-app-laravel-ingress-th98cuqw
+    ingress.kubernetes.io/https-target-proxy: k8s2-ts-jbsfzzr2-laravel-app-laravel-ingress-th98cuqw
+    ingress.kubernetes.io/ssl-cert: k8s2-cr-jbsfzzr2-76ondngmo3v21f1y-98f9d921b8a0692c
+    ingress.kubernetes.io/target-proxy: k8s2-tp-jbsfzzr2-laravel-app-laravel-ingress-th98cuqw
+    ingress.kubernetes.io/url-map: k8s2-um-jbsfzzr2-laravel-app-laravel-ingress-th98cuqw
+    kubectl.kubernetes.io/restartedAt: "2025-09-23T08:12:56+05:30"
+    kubernetes.io/ingress.allow-http: "true"
+    kubernetes.io/ingress.class: gce
+    kubernetes.io/ingress.global-static-ip-name: laravel-ip-stg
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  creationTimestamp: "2025-09-19T18:14:52Z"
+  finalizers:
+  - networking.gke.io/ingress-finalizer-V2
+  generation: 2
+  labels:
+    app: laravel-ingress
+  name: laravel-ingress
+  namespace: laravel-app
+  resourceVersion: "1758595377768063019"
+  uid: 9245a984-ec91-4ad2-b035-7a67079b809f
+spec:
+  rules:
+  - host: zyoshu.gig.codes
+    http:
+      paths:
+      - backend:
+          service:
+            name: laravel-http-service
+            port:
+              number: 80
+        path: /
+        pathType: Prefix
+  - host: '*.zyoshu.gig.codes'
+    http:
+      paths:
+      - backend:
+          service:
+            name: laravel-http-service
+            port:
+              number: 80
+        path: /
+        pathType: Prefix
+  tls:
+  - hosts:
+    - zyoshu.gig.codes
+    - '*.zyoshu.gig.codes'
+    secretName: wildcard-zyoshu-tls-secret
+status:
+  loadBalancer:
+    ingress:
+    - ip: 34.36.46.22
