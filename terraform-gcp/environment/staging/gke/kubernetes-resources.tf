@@ -804,23 +804,24 @@ resource "kubernetes_ingress_v1" "laravel_ingress" {
       }
     }
 
-    rule {
-      host = "*.${var.base_domain}" # Tenants use subdomains like tenant1.zyoshu-test.com
-      http {
-        path {
-          path      = "/"
-          path_type = "Prefix"
-          backend {
-            service {
-              name = kubernetes_service.laravel_http_service.metadata[0].name
-              port {
-                number = 80
-              }
-            }
-          }
-        }
-      }
-    }
+    # Wildcard domain rule commented out due to regex compilation issues
+    # rule {
+    #   host = "*.${var.base_domain}" # Tenants use subdomains like tenant1.zyoshu-test.com
+    #   http {
+    #     path {
+    #       path      = "/"
+    #       path_type = "Prefix"
+    #       backend {
+    #         service {
+    #           name = kubernetes_service.laravel_http_service.metadata[0].name
+    #           port {
+    #             number = 80
+    #           }
+    #         }
+    #       }
+    #     }
+    #   }
+    # }
   }
 
   depends_on = [

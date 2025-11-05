@@ -433,4 +433,37 @@ variable "laravel_service_account_name" {
   default     = "laravel"
 }
 
+# ------------------------------------
+#  VPC Configuration (Production Only)
+# ------------------------------------
+variable "public_subnet_cidr" {
+  type        = string
+  description = "Public subnet CIDR for NAT/LB"
+  default     = "10.10.1.0/24"
+}
+
+variable "private_subnet_cidr" {
+  type        = string
+  description = "Private subnet CIDR for resources"
+  default     = "10.10.2.0/24"
+}
+
+variable "gke_pod_cidr" {
+  type        = string
+  description = "GKE pod IP range"
+  default     = "10.1.0.0/16"
+}
+
+variable "gke_service_cidr" {
+  type        = string
+  description = "GKE service IP range"
+  default     = "10.2.0.0/16"
+}
+
+variable "allowed_ssh_ranges" {
+  type        = list(string)
+  description = "Allowed SSH IP ranges"
+  default     = ["0.0.0.0/0"]
+}
+
 
