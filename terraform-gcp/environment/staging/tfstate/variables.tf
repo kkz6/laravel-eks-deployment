@@ -17,13 +17,13 @@ variable "project_id" {
 variable "gcp_region" {
   type        = string
   description = "GCP Region Target Deployment"
-  default     = "us-central1"
+  default     = "asia-northeast1"
 }
 
 variable "gcp_zone" {
   type        = string
   description = "GCP Zone Target Deployment"
-  default     = "us-central1-a"
+  default     = "asia-northeast1-a"
 }
 
 # ------------------------------------
@@ -67,7 +67,7 @@ variable "department" {
 variable "tfstate_bucket" {
   type        = string
   description = "Name of bucket to store tfstate"
-  default     = "laravel-gcp-terraform-state"
+  default     = "zyoshu-terraform-state"
 }
 
 variable "tfstate_prefix" {

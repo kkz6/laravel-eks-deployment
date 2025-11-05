@@ -12,7 +12,7 @@
 #  Cloud Storage Bucket for Terraform State
 # --------------------------------------------------------------------------
 resource "google_storage_bucket" "terraform_state" {
-  name          = "${var.tfstate_bucket}-${var.environment[local.env]}"
+  name          = "${var.tfstate_bucket}-staging" # Hardcoded for staging environment
   location      = var.gcp_region
   force_destroy = false
 
@@ -34,7 +34,7 @@ resource "google_storage_bucket" "terraform_state" {
   lifecycle_rule {
     condition {
       age                   = 7
-      with_state           = "ARCHIVED"
+      with_state            = "ARCHIVED"
       matches_storage_class = ["NEARLINE"]
     }
     action {

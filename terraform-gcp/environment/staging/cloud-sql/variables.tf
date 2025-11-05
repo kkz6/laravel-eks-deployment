@@ -17,13 +17,13 @@ variable "project_id" {
 variable "gcp_region" {
   type        = string
   description = "GCP Region Target Deployment"
-  default     = "us-central1"
+  default     = "asia-northeast1"
 }
 
 variable "gcp_zone" {
   type        = string
   description = "GCP Zone Target Deployment"
-  default     = "us-central1-a"
+  default     = "asia-northeast1-a"
 }
 
 # ------------------------------------
@@ -171,7 +171,7 @@ variable "authorized_networks" {
     value = string
   }))
   description = "List of authorized networks (not used with private IP)"
-  default = []
+  default     = []
 }
 
 # ------------------------------------

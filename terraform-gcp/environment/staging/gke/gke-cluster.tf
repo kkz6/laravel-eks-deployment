@@ -13,7 +13,7 @@
 # --------------------------------------------------------------------------
 resource "google_container_cluster" "laravel_cluster" {
   name     = "${var.cluster_name}-${var.environment[local.env]}"
-  location = var.gcp_region
+  location = var.gcp_zone # Changed to single zone
 
   # We can't create a cluster with no node pool defined, but we want to only use
   # separately managed node pools. So we create the smallest possible default
@@ -101,17 +101,17 @@ resource "google_container_cluster" "laravel_cluster" {
 # --------------------------------------------------------------------------
 resource "google_container_node_pool" "laravel_nodes" {
   name     = "laravel-nodes-${var.environment[local.env]}"
-  location = var.gcp_region
+  location = var.gcp_zone # Changed to single zone
   cluster  = google_container_cluster.laravel_cluster.name
 
   # Node count and autoscaling (environment-specific)
-  initial_node_count = var.environment[local.env] == "prod" ? var.node_count : 1
+  initial_node_count = 1 # Single node setup
 
   dynamic "autoscaling" {
     for_each = var.enable_autoscaling ? [1] : []
     content {
       min_node_count = 1
-      max_node_count = var.environment[local.env] == "prod" ? 3 : 2 # Allow staging to scale to 2 nodes
+      max_node_count = 1 # Single node setup - no scaling
     }
   }
 
