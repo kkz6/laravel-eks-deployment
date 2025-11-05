@@ -11,12 +11,24 @@
 # --------------------------------------------------------------------------
 #  Local Values for Database and Redis Connection
 # --------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+#  Data Sources for Cloud SQL Database Info
+# --------------------------------------------------------------------------
+data "terraform_remote_state" "cloud_sql" {
+  backend = "gcs"
+  config = {
+    bucket = "zyoshu-terraform-state-staging"
+    prefix = "cloud-sql/terraform.tfstate"
+  }
+  workspace = "staging"
+}
+
 locals {
-  # Use variables for database connection (will be provided via terraform.tfvars)
-  db_host     = var.db_host
-  db_password = var.db_password
-  db_user     = var.db_user
-  db_name     = var.db_name
+  # Get database connection info from Cloud SQL remote state
+  db_host     = try(data.terraform_remote_state.cloud_sql.outputs.database_host, var.db_host)
+  db_password = try(data.terraform_remote_state.cloud_sql.outputs.database_password, var.db_password)
+  db_user     = try(data.terraform_remote_state.cloud_sql.outputs.database_user, var.db_user)
+  db_name     = try(data.terraform_remote_state.cloud_sql.outputs.database_name, var.db_name)
   redis_host  = google_compute_instance.redis_vm.network_interface[0].network_ip
 }
 
@@ -285,12 +297,12 @@ resource "kubernetes_deployment" "laravel_http" {
 
           resources {
             requests = {
-              memory = "512Mi"
-              cpu    = "250m"
+              memory = "256Mi"
+              cpu    = "50m"
             }
             limits = {
-              memory = "2Gi"
-              cpu    = "1000m"
+              memory = "1Gi"
+              cpu    = "300m"
             }
           }
 
@@ -418,11 +430,11 @@ resource "kubernetes_deployment" "laravel_scheduler" {
           resources {
             requests = {
               memory = "64Mi"
-              cpu    = "50m"
+              cpu    = "25m"
             }
             limits = {
               memory = "128Mi"
-              cpu    = "200m"
+              cpu    = "100m"
             }
           }
 
@@ -536,11 +548,11 @@ resource "kubernetes_deployment" "laravel_horizon" {
           resources {
             requests = {
               memory = "64Mi"
-              cpu    = "50m"
+              cpu    = "25m"
             }
             limits = {
               memory = "128Mi"
-              cpu    = "200m"
+              cpu    = "100m"
             }
           }
 

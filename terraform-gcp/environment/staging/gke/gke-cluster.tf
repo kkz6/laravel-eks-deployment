@@ -105,13 +105,13 @@ resource "google_container_node_pool" "laravel_nodes" {
   cluster  = google_container_cluster.laravel_cluster.name
 
   # Node count and autoscaling (environment-specific)
-  initial_node_count = 1 # Single node setup
+  initial_node_count = 2 # Two nodes for staging to handle system + app pods
 
   dynamic "autoscaling" {
     for_each = var.enable_autoscaling ? [1] : []
     content {
       min_node_count = 1
-      max_node_count = 1 # Single node setup - no scaling
+      max_node_count = 2 # Allow scaling between 1-2 nodes for staging
     }
   }
 
