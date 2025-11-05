@@ -29,7 +29,8 @@ locals {
   db_password = try(data.terraform_remote_state.cloud_sql.outputs.database_password, var.db_password)
   db_user     = try(data.terraform_remote_state.cloud_sql.outputs.database_user, var.db_user)
   db_name     = try(data.terraform_remote_state.cloud_sql.outputs.database_name, var.db_name)
-  redis_host  = google_compute_instance.redis_vm.network_interface[0].network_ip
+  # Use Kubernetes Redis service instead of VM (more reliable)
+  redis_host  = "redis-service.laravel-app.svc.cluster.local"
 }
 
 # --------------------------------------------------------------------------
@@ -637,6 +638,99 @@ resource "kubernetes_service" "laravel_http_service" {
   }
 
   depends_on = [kubernetes_deployment.laravel_http]
+}
+
+# --------------------------------------------------------------------------
+#  Redis Deployment (Kubernetes-based instead of VM)
+# --------------------------------------------------------------------------
+resource "kubernetes_deployment" "redis" {
+  metadata {
+    name      = "redis"
+    namespace = kubernetes_namespace.laravel_app.metadata[0].name
+    labels = {
+      app       = "redis"
+      component = "cache"
+    }
+  }
+
+  spec {
+    replicas = 1
+    selector {
+      match_labels = {
+        app = "redis"
+      }
+    }
+
+    template {
+      metadata {
+        labels = {
+          app       = "redis"
+          component = "cache"
+        }
+      }
+      spec {
+        containers {
+          name  = "redis"
+          image = "redis:7.0-alpine"
+          ports {
+            container_port = 6379
+          }
+          env {
+            name = "REDIS_PASSWORD"
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret.laravel_secrets.metadata[0].name
+                key  = "REDIS_PASSWORD"
+              }
+            }
+          }
+          command = ["redis-server"]
+          args    = ["--requirepass", "$(REDIS_PASSWORD)", "--bind", "0.0.0.0"]
+          
+          resources {
+            requests = {
+              memory = "64Mi"
+              cpu    = "50m"
+            }
+            limits = {
+              memory = "256Mi"
+              cpu    = "200m"
+            }
+          }
+        }
+      }
+    }
+  }
+
+  depends_on = [kubernetes_secret.laravel_secrets]
+}
+
+# --------------------------------------------------------------------------
+#  Redis Service
+# --------------------------------------------------------------------------
+resource "kubernetes_service" "redis_service" {
+  metadata {
+    name      = "redis-service"
+    namespace = kubernetes_namespace.laravel_app.metadata[0].name
+    labels = {
+      app       = "redis"
+      component = "cache"
+    }
+  }
+
+  spec {
+    selector = {
+      app = "redis"
+    }
+    port {
+      port        = 6379
+      target_port = 6379
+      protocol    = "TCP"
+    }
+    type = "ClusterIP"
+  }
+
+  depends_on = [kubernetes_deployment.redis]
 }
 
 # --------------------------------------------------------------------------
