@@ -633,7 +633,7 @@ resource "kubernetes_service" "laravel_http_service" {
       protocol    = "TCP"
     }
 
-    type = "ClusterIP"
+    type = "NodePort"
   }
 
   depends_on = [kubernetes_deployment.laravel_http]
@@ -786,21 +786,13 @@ resource "kubernetes_ingress_v1" "laravel_ingress" {
     annotations = {
       "kubernetes.io/ingress.class"                 = "gce"
       "kubernetes.io/ingress.global-static-ip-name" = "laravel-ip-${var.environment[local.env]}"
-      # "cert-manager.io/cluster-issuer"            = "letsencrypt-prod"  # Not needed - Cloudflare handles SSL
-      "kubernetes.io/ingress.allow-http" = "true"
-      # "nginx.ingress.kubernetes.io/ssl-redirect"  = "true"  # Let Cloudflare handle SSL redirect
+      "kubernetes.io/ingress.allow-http"             = "true"
+      # SSL/TLS handled by Cloudflare - no need for managed certificates
     }
   }
 
   spec {
-    # TLS handled by Cloudflare - no need for in-cluster certificates
-    # tls {
-    #   hosts = [
-    #     "${var.app_subdomain}.${var.base_domain}",
-    #     "*.${var.app_subdomain}.${var.base_domain}"
-    #   ]
-    #   secret_name = "wildcard-${var.app_subdomain}-tls-secret"
-    # }
+    # TLS handled by Cloudflare - ingress serves HTTP only
 
     rule {
       host = var.app_subdomain != "" ? "${var.app_subdomain}.${var.base_domain}" : var.base_domain
