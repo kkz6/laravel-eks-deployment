@@ -129,6 +129,12 @@ resource "kubernetes_config_map" "laravel_config" {
     APP_URL     = var.app_url
     LOG_CHANNEL = "stderr"
     TZ          = "UTC"
+    
+    # Trust configuration for Kubernetes/GKE environment
+    # Note: TRUST_PROXIES="*" causes regex compilation error in Symfony Request class
+    # Use specific IP ranges instead
+    TRUST_HOSTS   = "false"
+    TRUST_PROXIES = "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
 
     # Multi-tenant configuration
     BASE_DOMAIN            = var.base_domain
@@ -308,8 +314,13 @@ resource "kubernetes_deployment" "laravel_http" {
 
           liveness_probe {
             http_get {
-              path = "/health"
-              port = var.frankenphp_port
+              path   = "/health"
+              port   = var.frankenphp_port
+              scheme = "HTTP"
+              http_header {
+                name  = "Host"
+                value = var.base_domain
+              }
             }
             initial_delay_seconds = 60
             period_seconds        = 30
@@ -319,8 +330,13 @@ resource "kubernetes_deployment" "laravel_http" {
 
           readiness_probe {
             http_get {
-              path = "/health"
-              port = var.frankenphp_port
+              path   = "/health"
+              port   = var.frankenphp_port
+              scheme = "HTTP"
+              http_header {
+                name  = "Host"
+                value = var.base_domain
+              }
             }
             initial_delay_seconds = 30
             period_seconds        = 10
