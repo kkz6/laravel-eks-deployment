@@ -57,7 +57,7 @@ resource "kubernetes_secret" "laravel_secrets" {
     # Redis configuration
     REDIS_HOST     = local.redis_host
     REDIS_PORT     = "6379"
-    REDIS_PASSWORD = "" # Redis VM doesn't have auth by default
+    REDIS_PASSWORD = var.redis_password != "" ? var.redis_password : random_password.redis_password[0].result
 
     # Laravel configuration
     APP_KEY = var.app_key
@@ -135,14 +135,14 @@ resource "kubernetes_config_map" "laravel_config" {
     DOCUMENT_AI_LOCATION               = var.document_ai_location
 
     # Google Cloud Storage Configuration for Multi-Tenant
-    GOOGLE_CLOUD_PROJECT_ID            = var.project_id
-    GOOGLE_CLOUD_STORAGE_BUCKET        = "${var.project_id}-laravel-shared-${var.environment[local.env]}"
-    GCS_BUCKET_PREFIX                  = "tenant"
-    GCS_BUCKET_LOCATION                = var.gcs_bucket_location
-    GCS_STORAGE_CLASS                  = var.gcs_storage_class
-    GOOGLE_CLOUD_STORAGE_PATH_PREFIX   = ""
-    GOOGLE_CLOUD_STORAGE_API_URI       = ""
-    GOOGLE_CLOUD_STORAGE_API_ENDPOINT  = ""
+    GOOGLE_CLOUD_PROJECT_ID           = var.project_id
+    GOOGLE_CLOUD_STORAGE_BUCKET       = "${var.project_id}-laravel-shared-${var.environment[local.env]}"
+    GCS_BUCKET_PREFIX                 = "tenant"
+    GCS_BUCKET_LOCATION               = var.gcs_bucket_location
+    GCS_STORAGE_CLASS                 = var.gcs_storage_class
+    GOOGLE_CLOUD_STORAGE_PATH_PREFIX  = ""
+    GOOGLE_CLOUD_STORAGE_API_URI      = ""
+    GOOGLE_CLOUD_STORAGE_API_ENDPOINT = ""
     # Note: GOOGLE_CLOUD_KEY_FILE not needed with Workload Identity
 
     # Migration configuration (for first deployment)
@@ -182,11 +182,11 @@ resource "kubernetes_service_account" "laravel_service_account" {
   metadata {
     name      = "laravel"
     namespace = kubernetes_namespace.laravel_app.metadata[0].name
-    
+
     annotations = {
       "iam.gke.io/gcp-service-account" = google_service_account.laravel_gcs_sa.email
     }
-    
+
     labels = {
       app         = "laravel"
       environment = var.environment[local.env]
@@ -214,7 +214,7 @@ resource "kubernetes_deployment" "laravel_http" {
   }
 
   spec {
-    replicas = var.environment[local.env] == "prod" ? 2 : 1
+    replicas = 1 # Single pod setup
 
     selector {
       match_labels = {
@@ -234,7 +234,7 @@ resource "kubernetes_deployment" "laravel_http" {
 
       spec {
         service_account_name = kubernetes_service_account.laravel_service_account.metadata[0].name
-        
+
         image_pull_secrets {
           name = kubernetes_secret.github_registry_secret.metadata[0].name
         }
@@ -376,7 +376,7 @@ resource "kubernetes_deployment" "laravel_scheduler" {
 
       spec {
         service_account_name = kubernetes_service_account.laravel_service_account.metadata[0].name
-        
+
         image_pull_secrets {
           name = kubernetes_secret.github_registry_secret.metadata[0].name
         }
@@ -494,7 +494,7 @@ resource "kubernetes_deployment" "laravel_horizon" {
 
       spec {
         service_account_name = kubernetes_service_account.laravel_service_account.metadata[0].name
-        
+
         image_pull_secrets {
           name = kubernetes_secret.github_registry_secret.metadata[0].name
         }
@@ -586,6 +586,10 @@ resource "kubernetes_service" "laravel_http_service" {
       app       = "laravel-http"
       component = "frontend"
     }
+    annotations = {
+      "cloud.google.com/neg"            = jsonencode({ ingress = true })
+      "cloud.google.com/backend-config" = jsonencode({ default = "laravel-backend-config" })
+    }
   }
 
   spec {
@@ -608,138 +612,138 @@ resource "kubernetes_service" "laravel_http_service" {
 }
 
 # --------------------------------------------------------------------------
-#  Horizontal Pod Autoscaler for HTTP
+#  Horizontal Pod Autoscaler for HTTP - DISABLED for single pod setup
 # --------------------------------------------------------------------------
-resource "kubernetes_horizontal_pod_autoscaler_v2" "laravel_http_hpa" {
-  metadata {
-    name      = "laravel-http-hpa"
-    namespace = kubernetes_namespace.laravel_app.metadata[0].name
-  }
-
-  spec {
-    scale_target_ref {
-      api_version = "apps/v1"
-      kind        = "Deployment"
-      name        = kubernetes_deployment.laravel_http.metadata[0].name
-    }
-
-    min_replicas = var.environment[local.env] == "prod" ? 2 : 1
-    max_replicas = var.environment[local.env] == "prod" ? 10 : 3
-
-    metric {
-      type = "Resource"
-      resource {
-        name = "cpu"
-        target {
-          type                = "Utilization"
-          average_utilization = 70
-        }
-      }
-    }
-
-    metric {
-      type = "Resource"
-      resource {
-        name = "memory"
-        target {
-          type                = "Utilization"
-          average_utilization = 80
-        }
-      }
-    }
-
-    behavior {
-      scale_down {
-        stabilization_window_seconds = 300
-        select_policy                = "Min"
-        policy {
-          type           = "Percent"
-          value          = 10
-          period_seconds = 60
-        }
-      }
-
-      scale_up {
-        stabilization_window_seconds = 60
-        select_policy                = "Max"
-        policy {
-          type           = "Percent"
-          value          = 50
-          period_seconds = 60
-        }
-      }
-    }
-  }
-
-  depends_on = [kubernetes_deployment.laravel_http]
-}
+# resource "kubernetes_horizontal_pod_autoscaler_v2" "laravel_http_hpa" {
+#   metadata {
+#     name      = "laravel-http-hpa"
+#     namespace = kubernetes_namespace.laravel_app.metadata[0].name
+#   }
+# 
+#   spec {
+#     scale_target_ref {
+#       api_version = "apps/v1"
+#       kind        = "Deployment"
+#       name        = kubernetes_deployment.laravel_http.metadata[0].name
+#     }
+# 
+#     min_replicas = var.environment[local.env] == "prod" ? 2 : 1
+#     max_replicas = var.environment[local.env] == "prod" ? 10 : 3
+# 
+#     metric {
+#       type = "Resource"
+#       resource {
+#         name = "cpu"
+#         target {
+#           type                = "Utilization"
+#           average_utilization = 70
+#         }
+#       }
+#     }
+# 
+#     metric {
+#       type = "Resource"
+#       resource {
+#         name = "memory"
+#         target {
+#           type                = "Utilization"
+#           average_utilization = 80
+#         }
+#       }
+#     }
+# 
+#     behavior {
+#       scale_down {
+#         stabilization_window_seconds = 300
+#         select_policy                = "Min"
+#         policy {
+#           type           = "Percent"
+#           value          = 10
+#           period_seconds = 60
+#         }
+#       }
+# 
+#       scale_up {
+#         stabilization_window_seconds = 60
+#         select_policy                = "Max"
+#         policy {
+#           type           = "Percent"
+#           value          = 50
+#           period_seconds = 60
+#         }
+#       }
+#     }
+#   }
+# 
+#   depends_on = [kubernetes_deployment.laravel_http]
+# }
 
 # --------------------------------------------------------------------------
-#  Horizontal Pod Autoscaler for Horizon
+#  Horizontal Pod Autoscaler for Horizon - DISABLED for single pod setup
 # --------------------------------------------------------------------------
-resource "kubernetes_horizontal_pod_autoscaler_v2" "laravel_horizon_hpa" {
-  metadata {
-    name      = "laravel-horizon-hpa"
-    namespace = kubernetes_namespace.laravel_app.metadata[0].name
-  }
-
-  spec {
-    scale_target_ref {
-      api_version = "apps/v1"
-      kind        = "Deployment"
-      name        = kubernetes_deployment.laravel_horizon.metadata[0].name
-    }
-
-    min_replicas = 1
-    max_replicas = var.environment[local.env] == "prod" ? 5 : 2
-
-    metric {
-      type = "Resource"
-      resource {
-        name = "cpu"
-        target {
-          type                = "Utilization"
-          average_utilization = 80
-        }
-      }
-    }
-
-    metric {
-      type = "Resource"
-      resource {
-        name = "memory"
-        target {
-          type                = "Utilization"
-          average_utilization = 85
-        }
-      }
-    }
-
-    behavior {
-      scale_down {
-        stabilization_window_seconds = 300
-        select_policy                = "Min"
-        policy {
-          type           = "Percent"
-          value          = 25
-          period_seconds = 60
-        }
-      }
-
-      scale_up {
-        stabilization_window_seconds = 60
-        select_policy                = "Max"
-        policy {
-          type           = "Percent"
-          value          = 100
-          period_seconds = 60
-        }
-      }
-    }
-  }
-
-  depends_on = [kubernetes_deployment.laravel_horizon]
-}
+# resource "kubernetes_horizontal_pod_autoscaler_v2" "laravel_horizon_hpa" {
+#   metadata {
+#     name      = "laravel-horizon-hpa"
+#     namespace = kubernetes_namespace.laravel_app.metadata[0].name
+#   }
+# 
+#   spec {
+#     scale_target_ref {
+#       api_version = "apps/v1"
+#       kind        = "Deployment"
+#       name        = kubernetes_deployment.laravel_horizon.metadata[0].name
+#     }
+# 
+#     min_replicas = 1
+#     max_replicas = var.environment[local.env] == "prod" ? 5 : 2
+# 
+#     metric {
+#       type = "Resource"
+#       resource {
+#         name = "cpu"
+#         target {
+#           type                = "Utilization"
+#           average_utilization = 80
+#         }
+#       }
+#     }
+# 
+#     metric {
+#       type = "Resource"
+#       resource {
+#         name = "memory"
+#         target {
+#           type                = "Utilization"
+#           average_utilization = 85
+#         }
+#       }
+#     }
+# 
+#     behavior {
+#       scale_down {
+#         stabilization_window_seconds = 300
+#         select_policy                = "Min"
+#         policy {
+#           type           = "Percent"
+#           value          = 25
+#           period_seconds = 60
+#         }
+#       }
+# 
+#       scale_up {
+#         stabilization_window_seconds = 60
+#         select_policy                = "Max"
+#         policy {
+#           type           = "Percent"
+#           value          = 100
+#           period_seconds = 60
+#         }
+#       }
+#     }
+#   }
+# 
+#   depends_on = [kubernetes_deployment.laravel_horizon]
+# }
 
 # --------------------------------------------------------------------------
 #  Ingress for Multi-Tenant Routing
@@ -754,23 +758,24 @@ resource "kubernetes_ingress_v1" "laravel_ingress" {
     annotations = {
       "kubernetes.io/ingress.class"                 = "gce"
       "kubernetes.io/ingress.global-static-ip-name" = "laravel-ip-${var.environment[local.env]}"
-      "cert-manager.io/cluster-issuer"              = "letsencrypt-prod"
-      "kubernetes.io/ingress.allow-http"            = "true"
-      "nginx.ingress.kubernetes.io/ssl-redirect"    = "true"
+      # "cert-manager.io/cluster-issuer"            = "letsencrypt-prod"  # Not needed - Cloudflare handles SSL
+      "kubernetes.io/ingress.allow-http" = "true"
+      # "nginx.ingress.kubernetes.io/ssl-redirect"  = "true"  # Let Cloudflare handle SSL redirect
     }
   }
 
   spec {
-    tls {
-      hosts = [
-        "${var.app_subdomain}.${var.base_domain}",
-        "*.${var.app_subdomain}.${var.base_domain}"
-      ]
-      secret_name = "wildcard-${var.app_subdomain}-tls-secret"
-    }
+    # TLS handled by Cloudflare - no need for in-cluster certificates
+    # tls {
+    #   hosts = [
+    #     "${var.app_subdomain}.${var.base_domain}",
+    #     "*.${var.app_subdomain}.${var.base_domain}"
+    #   ]
+    #   secret_name = "wildcard-${var.app_subdomain}-tls-secret"
+    # }
 
     rule {
-      host = "${var.app_subdomain}.${var.base_domain}"
+      host = var.app_subdomain != "" ? "${var.app_subdomain}.${var.base_domain}" : var.base_domain
       http {
         path {
           path      = "/"
@@ -788,7 +793,7 @@ resource "kubernetes_ingress_v1" "laravel_ingress" {
     }
 
     rule {
-      host = "*.${var.app_subdomain}.${var.base_domain}"
+      host = "*.${var.base_domain}" # Tenants use subdomains like tenant1.zyoshu-test.com
       http {
         path {
           path      = "/"

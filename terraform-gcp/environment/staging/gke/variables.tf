@@ -17,13 +17,13 @@ variable "project_id" {
 variable "gcp_region" {
   type        = string
   description = "GCP Region Target Deployment"
-  default     = "us-central1"
+  default     = "asia-northeast1"
 }
 
 variable "gcp_zone" {
   type        = string
   description = "GCP Zone Target Deployment"
-  default     = "us-central1-a"
+  default     = "asia-northeast1-a"
 }
 
 # ------------------------------------
@@ -143,6 +143,13 @@ variable "redis_version" {
   type        = string
   description = "Redis version for VM deployment"
   default     = "7.0"
+}
+
+variable "redis_password" {
+  type        = string
+  description = "Redis authentication password"
+  sensitive   = true
+  default     = ""
 }
 
 # ------------------------------------
@@ -405,7 +412,7 @@ variable "tenant_routing_enabled" {
 variable "gcs_bucket_location" {
   type        = string
   description = "GCS bucket location"
-  default     = "US"
+  default     = "ASIA-NORTHEAST1"
 }
 
 variable "gcs_storage_class" {

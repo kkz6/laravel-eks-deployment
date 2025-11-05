@@ -54,6 +54,12 @@ output "redis_connection_string" {
   value       = "${google_compute_instance.redis_vm.network_interface[0].network_ip}:6379"
 }
 
+output "redis_password" {
+  description = "Redis authentication password"
+  value       = var.redis_password != "" ? var.redis_password : random_password.redis_password[0].result
+  sensitive   = true
+}
+
 # --------------------------------------------------------------------------
 #  Kubernetes Configuration
 # --------------------------------------------------------------------------

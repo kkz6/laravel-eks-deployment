@@ -9,6 +9,15 @@
 # ==========================================================================
 
 # --------------------------------------------------------------------------
+#  Random Password for Redis (if not provided)
+# --------------------------------------------------------------------------
+resource "random_password" "redis_password" {
+  count   = var.redis_password == "" ? 1 : 0
+  length  = 32
+  special = true
+}
+
+# --------------------------------------------------------------------------
 #  Get Custom VPC Configuration (already defined in gke-cluster.tf)
 # --------------------------------------------------------------------------
 
@@ -33,13 +42,13 @@ resource "google_compute_instance" "redis_vm" {
   network_interface {
     network    = data.terraform_remote_state.vpc.outputs.vpc_name
     subnetwork = data.terraform_remote_state.vpc.outputs.private_subnet_name
-    
+
     # No external IP for VPC-only access (NAT gateway provides internet access)
   }
 
   # Service account
   service_account {
-    email  = google_service_account.redis_vm_sa.email
+    email = google_service_account.redis_vm_sa.email
     scopes = [
       "https://www.googleapis.com/auth/cloud-platform",
       "https://www.googleapis.com/auth/logging.write",
@@ -50,8 +59,9 @@ resource "google_compute_instance" "redis_vm" {
   # Metadata and startup script
   metadata = {
     startup-script = templatefile("${path.module}/scripts/setup-redis.sh", {
-      redis_version = var.redis_version
-      environment   = var.environment[local.env]
+      redis_version  = var.redis_version
+      environment    = var.environment[local.env]
+      redis_password = var.redis_password != "" ? var.redis_password : random_password.redis_password[0].result
     })
   }
 
@@ -94,20 +104,22 @@ resource "google_project_iam_member" "redis_vm_monitoring" {
 }
 
 # --------------------------------------------------------------------------
-#  Firewall Rule for Redis Access from GKE
+#  Firewall Rule for Redis Access from GKE Pods (Custom VPC)
 # --------------------------------------------------------------------------
-resource "google_compute_firewall" "allow_redis_from_gke" {
-  name    = "laravel-allow-redis-from-gke-${var.environment[local.env]}"
-  network = "default"
+resource "google_compute_firewall" "allow_gke_pods_to_redis" {
+  name    = "laravel-allow-gke-pods-to-redis-${var.environment[local.env]}"
+  network = data.terraform_remote_state.vpc.outputs.vpc_name
 
   allow {
     protocol = "tcp"
     ports    = ["6379"]
   }
 
-  # Allow access from GKE nodes
-  source_tags = ["laravel-gke-node"]
-  target_tags = ["laravel-redis"]
+  # Allow access from GKE pod CIDR (using VPC secondary range)
+  source_ranges = [data.terraform_remote_state.vpc.outputs.gke_pod_cidr]
+  target_tags   = ["redis-server"]
+
+  description = "Allow GKE pods to connect to Redis VM in custom VPC"
 
   depends_on = [google_compute_instance.redis_vm]
 }

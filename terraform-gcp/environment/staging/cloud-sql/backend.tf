@@ -9,7 +9,7 @@
 
 terraform {
   backend "gcs" {
-    bucket = "laravel-gcp-terraform-state-stg"  # This should match your environment
+    bucket = "zyoshu-terraform-state-staging" # Bucket name with env
     prefix = "cloud-sql/terraform.tfstate"
   }
 }

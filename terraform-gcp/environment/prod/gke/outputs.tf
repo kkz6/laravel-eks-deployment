@@ -46,12 +46,18 @@ output "redis_internal_ip" {
 
 output "redis_external_ip" {
   description = "Redis VM external IP address (for setup only)"
-  value       = google_compute_instance.redis_vm.network_interface[0].access_config[0].nat_ip
+  value       = length(google_compute_instance.redis_vm.network_interface[0].access_config) > 0 ? google_compute_instance.redis_vm.network_interface[0].access_config[0].nat_ip : null
 }
 
 output "redis_connection_string" {
   description = "Redis connection string for Kubernetes"
   value       = "${google_compute_instance.redis_vm.network_interface[0].network_ip}:6379"
+}
+
+output "redis_password" {
+  description = "Redis authentication password"
+  value       = var.redis_password != "" ? var.redis_password : random_password.redis_password[0].result
+  sensitive   = true
 }
 
 # --------------------------------------------------------------------------
@@ -86,9 +92,9 @@ output "redis_service_account_email" {
 output "deployment_architecture" {
   description = "Summary of hybrid deployment architecture"
   value = {
-    database    = "Cloud SQL (managed)"
-    redis       = "VM-based (cost-effective)"
-    kubernetes  = "GKE (container orchestration)"
+    database   = "Cloud SQL (managed)"
+    redis      = "VM-based (cost-effective)"
+    kubernetes = "GKE (container orchestration)"
     containers = {
       http      = "Auto-scaling pods"
       scheduler = "Single pod (no scaling)"
@@ -105,7 +111,7 @@ output "ingress_ip" {
 output "application_urls" {
   description = "URLs for the multi-tenant Laravel application"
   value = {
-    main_app = var.base_domain != "" ? "https://${var.app_subdomain}.${var.base_domain}" : "http://${google_compute_global_address.laravel_ingress_ip.address}"
+    main_app       = var.base_domain != "" ? "https://${var.app_subdomain}.${var.base_domain}" : "http://${google_compute_global_address.laravel_ingress_ip.address}"
     tenant_example = var.base_domain != "" ? "https://tenant1.${var.app_subdomain}.${var.base_domain}" : null
   }
 }

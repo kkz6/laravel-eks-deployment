@@ -145,6 +145,13 @@ variable "redis_version" {
   default     = "7.0"
 }
 
+variable "redis_password" {
+  type        = string
+  description = "Redis authentication password"
+  sensitive   = true
+  default     = ""
+}
+
 # ------------------------------------
 #  Multi-Tenant Domain Configuration
 # ------------------------------------
