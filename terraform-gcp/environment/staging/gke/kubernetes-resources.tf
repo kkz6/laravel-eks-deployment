@@ -446,12 +446,12 @@ resource "kubernetes_deployment" "laravel_scheduler" {
 
           resources {
             requests = {
-              memory = "64Mi"
+              memory = "128Mi"
               cpu    = "25m"
             }
             limits = {
-              memory = "128Mi"
-              cpu    = "100m"
+              memory = "512Mi"
+              cpu    = "200m"
             }
           }
 
@@ -564,12 +564,12 @@ resource "kubernetes_deployment" "laravel_horizon" {
 
           resources {
             requests = {
-              memory = "64Mi"
+              memory = "128Mi"
               cpu    = "25m"
             }
             limits = {
-              memory = "128Mi"
-              cpu    = "100m"
+              memory = "512Mi"
+              cpu    = "200m"
             }
           }
 
