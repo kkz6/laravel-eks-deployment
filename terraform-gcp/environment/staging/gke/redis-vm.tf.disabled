@@ -1,12 +1,13 @@
 # ==========================================================================
-#  GKE: redis-vm.tf (Redis VM Instance)
+#  GKE: redis-vm.tf (Redis VM Instance) - DISABLED
 # --------------------------------------------------------------------------
 #  Description
 # --------------------------------------------------------------------------
-#    - Dedicated VM for Redis
-#    - Cost-effective alternative to Memorystore
-#    - Persistent storage and backup
+#    - DISABLED: Using Kubernetes Redis Pod instead (more cost-effective)
+#    - Original VM-based Redis configuration kept for reference
 # ==========================================================================
+
+# NOTE: Redis VM resources are commented out - using Kubernetes Redis Pod instead
 
 # --------------------------------------------------------------------------
 #  Random Password for Redis (if not provided)
@@ -20,7 +21,8 @@ resource "random_password" "redis_password" {
 # --------------------------------------------------------------------------
 #  Redis VM Instance
 # --------------------------------------------------------------------------
-resource "google_compute_instance" "redis_vm" {
+# DISABLED: Using Kubernetes Redis Pod instead
+# resource "google_compute_instance" "redis_vm" {
   name         = "laravel-redis-${var.environment[local.env]}"
   machine_type = var.redis_machine_type
   zone         = var.gcp_zone
