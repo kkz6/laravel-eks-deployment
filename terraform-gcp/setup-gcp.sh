@@ -18,8 +18,8 @@ NC='\033[0m' # No Color
 
 # Default values
 PROJECT_ID=""
-REGION="us-central1"
-ZONE="us-central1-a"
+REGION="asia-northeast1"
+ZONE="asia-northeast1-a"
 BILLING_ACCOUNT=""
 SKIP_BILLING=false
 
@@ -29,15 +29,15 @@ print_usage() {
     echo ""
     echo "OPTIONS:"
     echo "  -p, --project PROJECT      GCP Project ID (required)"
-    echo "  -r, --region REGION        GCP Region [default: us-central1]"
-    echo "  -z, --zone ZONE            GCP Zone [default: us-central1-a]"
+    echo "  -r, --region REGION        GCP Region [default: asia-northeast1]"
+    echo "  -z, --zone ZONE            GCP Zone [default: asia-northeast1-a]"
     echo "  -b, --billing ACCOUNT      Billing Account ID (optional)"
     echo "  -s, --skip-billing         Skip billing account setup"
     echo "  -h, --help                 Show this help message"
     echo ""
     echo "EXAMPLES:"
     echo "  $0 -p zyoshu-test"
-    echo "  $0 -p zyoshu-test -r europe-west1 -z europe-west1-b"
+    echo "  $0 -p zyoshu-test -r asia-northeast1 -z asia-northeast1-a"
     echo "  $0 -p zyoshu-test -b 01234A-56789B-CDEFGH"
 }
 

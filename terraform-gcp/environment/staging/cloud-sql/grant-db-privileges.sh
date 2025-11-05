@@ -8,9 +8,9 @@ kubectl run mysql-grant-privileges \
   --rm -i --restart=Never \
   --namespace=laravel-app \
   -- mysql \
-  -h 10.44.0.3 \
+  -h 10.83.0.3 \
   -u root \
-  -p'k=H8%k)@EwRkW<wU' \
+  -p'YR2OnxKr0N)k8v@j' \
   -e "
     -- Grant privileges for multi-tenant system
     GRANT CREATE ON *.* TO 'laravel_user'@'%';
