@@ -887,6 +887,16 @@ resource "kubernetes_ingress_v1" "laravel_ingress" {
 
   spec {
     # TLS handled by Cloudflare - ingress serves HTTP only
+    
+    # Default backend to handle all unmatched hosts (including wildcard subdomains)
+    default_backend {
+      service {
+        name = kubernetes_service.laravel_http_service.metadata[0].name
+        port {
+          number = 80
+        }
+      }
+    }
 
     rule {
       host = var.app_subdomain != "" ? "${var.app_subdomain}.${var.base_domain}" : var.base_domain
@@ -906,9 +916,14 @@ resource "kubernetes_ingress_v1" "laravel_ingress" {
       }
     }
 
-    # Wildcard domain rule commented out due to regex compilation issues
+    # Note: Kubernetes Ingress doesn't support true wildcards like *.domain.com
+    # Using default backend instead to handle all subdomains
+    # The default backend above will route all unmatched hosts to Laravel
+    # Laravel's tenant routing middleware handles subdomain routing
+    
+    # Example: Explicit subdomain rules (optional, handled by default backend)
     # rule {
-    #   host = "*.${var.base_domain}" # Tenants use subdomains like tenant1.zyoshu-test.com
+    #   host = "demo.${var.base_domain}"
     #   http {
     #     path {
     #       path      = "/"
