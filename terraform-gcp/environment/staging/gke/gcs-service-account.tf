@@ -43,14 +43,22 @@ resource "google_project_iam_member" "laravel_service_usage_consumer" {
 }
 
 # --------------------------------------------------------------------------
-#  Workload Identity Binding (Disabled for staging - using service account keys)
+#  Workload Identity Binding
 # --------------------------------------------------------------------------
-# Note: Workload Identity requires additional setup. For staging, we'll use service account keys.
-# resource "google_service_account_iam_member" "laravel_workload_identity" {
-#   service_account_id = google_service_account.laravel_gcs_sa.name
-#   role               = "roles/iam.workloadIdentityUser"
-#   member             = "serviceAccount:${var.project_id}.svc.id.goog[${var.laravel_namespace}/${var.laravel_service_account_name}]"
-# }
+resource "google_service_account_iam_member" "laravel_workload_identity" {
+  service_account_id = google_service_account.laravel_gcs_sa.name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "serviceAccount:${var.project_id}.svc.id.goog[${var.laravel_namespace}/${var.laravel_service_account_name}]"
+}
+
+# --------------------------------------------------------------------------
+#  Service Account Token Creator (for bucket creation)
+# --------------------------------------------------------------------------
+resource "google_project_iam_member" "laravel_token_creator" {
+  project = var.project_id
+  role    = "roles/iam.serviceAccountTokenCreator"
+  member  = "serviceAccount:${google_service_account.laravel_gcs_sa.email}"
+}
 
 # --------------------------------------------------------------------------
 #  Default GCS Bucket (Optional - for shared resources)
