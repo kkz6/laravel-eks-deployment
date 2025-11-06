@@ -30,7 +30,8 @@ locals {
   db_user     = try(data.terraform_remote_state.cloud_sql.outputs.database_user, var.db_user)
   db_name     = try(data.terraform_remote_state.cloud_sql.outputs.database_name, var.db_name)
   # Use Kubernetes Redis service instead of VM (more reliable)
-  redis_host  = "redis-service.laravel-app.svc.cluster.local"
+  # Redis is in separate namespace to avoid restarts when updating Laravel deployments
+  redis_host  = "redis-service.redis-system.svc.cluster.local"
 }
 
 # --------------------------------------------------------------------------
@@ -641,12 +642,29 @@ resource "kubernetes_service" "laravel_http_service" {
 }
 
 # --------------------------------------------------------------------------
+#  Redis Namespace (Separate from Laravel to avoid accidental restarts)
+# --------------------------------------------------------------------------
+resource "kubernetes_namespace" "redis_system" {
+  metadata {
+    name = "redis-system"
+    labels = {
+      name        = "redis-system"
+      environment = var.environment[local.env]
+      project     = "laravel-gcp-deployment"
+      component   = "cache"
+    }
+  }
+  
+  depends_on = [google_container_node_pool.laravel_nodes]
+}
+
+# --------------------------------------------------------------------------
 #  Redis Deployment (Kubernetes-based instead of VM)
 # --------------------------------------------------------------------------
 resource "kubernetes_deployment" "redis" {
   metadata {
     name      = "redis"
-    namespace = kubernetes_namespace.laravel_app.metadata[0].name
+    namespace = kubernetes_namespace.redis_system.metadata[0].name
     labels = {
       app       = "redis"
       component = "cache"
@@ -711,7 +729,7 @@ resource "kubernetes_deployment" "redis" {
 resource "kubernetes_service" "redis_service" {
   metadata {
     name      = "redis-service"
-    namespace = kubernetes_namespace.laravel_app.metadata[0].name
+    namespace = kubernetes_namespace.redis_system.metadata[0].name
     labels = {
       app       = "redis"
       component = "cache"
