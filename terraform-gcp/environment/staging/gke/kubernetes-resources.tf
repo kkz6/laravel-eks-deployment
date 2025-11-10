@@ -642,6 +642,48 @@ resource "kubernetes_service" "laravel_http_service" {
 }
 
 # --------------------------------------------------------------------------
+#  Backend Config for GCE Ingress (File Upload Support)
+# --------------------------------------------------------------------------
+resource "kubectl_manifest" "laravel_backend_config" {
+  yaml_body = <<YAML
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: laravel-backend-config
+  namespace: ${kubernetes_namespace.laravel_app.metadata[0].name}
+spec:
+  # Timeout configuration for file uploads (5 minutes)
+  timeoutSec: 300
+  
+  # Connection draining
+  connectionDraining:
+    drainingTimeoutSec: 60
+  
+  # Enable logging
+  logging:
+    enable: true
+    sampleRate: 1.0
+  
+  # Custom health check
+  healthCheck:
+    checkIntervalSec: 30
+    timeoutSec: 10
+    healthyThreshold: 2
+    unhealthyThreshold: 3
+    type: HTTP
+    requestPath: /health
+    port: 8000
+  
+  # Session affinity for consistent routing (helpful for file uploads)
+  sessionAffinity:
+    affinityType: "CLIENT_IP"
+    affinityCookieTtlSec: 3600
+YAML
+
+  depends_on = [kubernetes_namespace.laravel_app]
+}
+
+# --------------------------------------------------------------------------
 #  Redis Namespace (Separate from Laravel to avoid accidental restarts)
 # --------------------------------------------------------------------------
 resource "kubernetes_namespace" "redis_system" {

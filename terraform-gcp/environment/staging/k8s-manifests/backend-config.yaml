@@ -1,0 +1,41 @@
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: laravel-backend-config
+  namespace: laravel-app
+spec:
+  # Connection draining timeout
+  connectionDraining:
+    drainingTimeoutSec: 60
+
+  # Timeout for backend service
+  timeoutSec: 300
+
+  # Health check configuration
+  healthCheck:
+    checkIntervalSec: 10
+    timeoutSec: 5
+    healthyThreshold: 2
+    unhealthyThreshold: 3
+    type: HTTP
+    requestPath: /health
+    port: 80
+
+  # Session affinity for sticky sessions
+  sessionAffinity:
+    affinityType: "CLIENT_IP"
+    affinityCookieTtlSec: 3600
+
+  # CDN configuration (optional)
+  cdn:
+    enabled: false
+
+  # Custom request headers (optional)
+  customRequestHeaders:
+    headers:
+      - "X-Client-Region:{client_region}"
+      - "X-Client-City:{client_city}"
+
+  # IAP (Identity-Aware Proxy) - disabled by default
+  iap:
+    enabled: false

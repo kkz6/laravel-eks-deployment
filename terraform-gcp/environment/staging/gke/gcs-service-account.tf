@@ -61,6 +61,21 @@ resource "google_project_iam_member" "laravel_token_creator" {
 }
 
 # --------------------------------------------------------------------------
+#  Document AI Permissions
+# --------------------------------------------------------------------------
+resource "google_project_iam_member" "laravel_documentai_user" {
+  project = var.project_id
+  role    = "roles/documentai.apiUser"
+  member  = "serviceAccount:${google_service_account.laravel_gcs_sa.email}"
+}
+
+resource "google_project_iam_member" "laravel_documentai_editor" {
+  project = var.project_id
+  role    = "roles/documentai.editor"
+  member  = "serviceAccount:${google_service_account.laravel_gcs_sa.email}"
+}
+
+# --------------------------------------------------------------------------
 #  Default GCS Bucket (Optional - for shared resources)
 # --------------------------------------------------------------------------
 # This bucket can be used for shared resources like app assets, logs, etc.

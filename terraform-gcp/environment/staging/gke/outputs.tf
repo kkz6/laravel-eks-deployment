@@ -137,7 +137,26 @@ output "next_steps" {
     step_2 = "Check pods: kubectl get pods -n laravel-app"
     step_3 = "Configure Cloudflare DNS with IP: ${google_compute_global_address.laravel_ingress_ip.address}"
     step_4 = "Test application: https://${var.app_subdomain}.${var.base_domain}"
+    step_5 = "Verify NAT IP for outbound requests: ${google_compute_address.nat_ip.address}"
   }
+}
+
+# --------------------------------------------------------------------------
+#  Cloud NAT Outputs
+# --------------------------------------------------------------------------
+output "nat_external_ip" {
+  description = "Static external IP address used by Cloud NAT for outbound connections"
+  value       = google_compute_address.nat_ip.address
+}
+
+output "nat_router_name" {
+  description = "Cloud Router name for NAT gateway"
+  value       = google_compute_router.nat_router.name
+}
+
+output "nat_gateway_name" {
+  description = "Cloud NAT gateway name"
+  value       = google_compute_router_nat.nat_gateway.name
 }
 
 # --------------------------------------------------------------------------
