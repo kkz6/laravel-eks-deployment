@@ -47,7 +47,7 @@ resource "kubernetes_namespace" "laravel_app" {
     }
   }
 
-  depends_on = [google_container_node_pool.laravel_nodes]
+  depends_on = [google_container_node_pool.laravel_nodes_private]
 }
 
 # --------------------------------------------------------------------------
@@ -68,10 +68,10 @@ resource "kubernetes_secret" "laravel_secrets" {
     DB_USERNAME   = local.db_user
     DB_PASSWORD   = local.db_password
 
-    # Redis configuration
+    # Redis configuration (using in-cluster Redis pod)
     REDIS_HOST     = local.redis_host
     REDIS_PORT     = "6379"
-    REDIS_PASSWORD = var.redis_password != "" ? var.redis_password : random_password.redis_password[0].result
+    REDIS_PASSWORD = var.redis_password
 
     # Laravel configuration
     APP_KEY = var.app_key
@@ -84,8 +84,7 @@ resource "kubernetes_secret" "laravel_secrets" {
   type = "Opaque"
 
   depends_on = [
-    kubernetes_namespace.laravel_app,
-    google_compute_instance.redis_vm
+    kubernetes_namespace.laravel_app
   ]
 }
 
@@ -697,7 +696,7 @@ resource "kubernetes_namespace" "redis_system" {
     }
   }
   
-  depends_on = [google_container_node_pool.laravel_nodes]
+  depends_on = [google_container_node_pool.laravel_nodes_private]
 }
 
 # --------------------------------------------------------------------------
@@ -729,10 +728,10 @@ resource "kubernetes_deployment" "redis" {
         }
       }
       spec {
-        containers {
+        container {
           name  = "redis"
           image = "redis:7.0-alpine"
-          ports {
+          port {
             container_port = 6379
           }
           env {

@@ -44,18 +44,14 @@ resource "google_compute_router_nat" "nat_gateway" {
   nat_ip_allocate_option = "MANUAL_ONLY"
   nat_ips                = [google_compute_address.nat_ip.self_link]
 
-  # Logging configuration (optional, for debugging)
+  # Logging configuration (enabled for monitoring and debugging)
   log_config {
     enable = true
-    filter = "ERRORS_ONLY"
+    filter = "ALL"
   }
 
   # Enable endpoint independent mapping for better compatibility
   enable_endpoint_independent_mapping = false
-  
-  # Port allocation settings for better resource utilization
-  min_ports_per_vm = 64
-  max_ports_per_vm = 512
 
   depends_on = [
     google_compute_router.nat_router,
