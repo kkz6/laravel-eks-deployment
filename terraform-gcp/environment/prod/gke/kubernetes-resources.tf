@@ -153,6 +153,29 @@ resource "kubernetes_config_map" "laravel_config" {
 }
 
 # --------------------------------------------------------------------------
+#  GCS ConfigMap
+# --------------------------------------------------------------------------
+resource "kubernetes_config_map" "gcs_config" {
+  metadata {
+    name      = "gcs-config"
+    namespace = kubernetes_namespace.laravel_app.metadata[0].name
+  }
+
+  data = {
+    GOOGLE_CLOUD_PROJECT_ID            = var.project_id
+    GOOGLE_CLOUD_STORAGE_BUCKET        = "${var.project_id}-laravel-shared-${var.environment[local.env]}"
+    GCS_BUCKET_PREFIX                  = "tenant"
+    GCS_BUCKET_LOCATION                = var.gcs_bucket_location
+    GCS_STORAGE_CLASS                  = var.gcs_storage_class
+    GOOGLE_CLOUD_STORAGE_PATH_PREFIX   = ""
+    GOOGLE_CLOUD_STORAGE_API_URI       = ""
+    GOOGLE_CLOUD_STORAGE_API_ENDPOINT  = ""
+  }
+
+  depends_on = [kubernetes_namespace.laravel_app]
+}
+
+# --------------------------------------------------------------------------
 #  Kubernetes Service Account with Workload Identity
 # --------------------------------------------------------------------------
 resource "kubernetes_service_account" "laravel_service_account" {
@@ -236,6 +259,12 @@ resource "kubernetes_deployment" "laravel_http" {
             value = "frankenphp"
           }
 
+          # Override GOOGLE_APPLICATION_CREDENTIALS for Workload Identity
+          env {
+            name  = "GOOGLE_APPLICATION_CREDENTIALS"
+            value = ""
+          }
+
           env_from {
             secret_ref {
               name = kubernetes_secret.laravel_secrets.metadata[0].name
@@ -245,6 +274,12 @@ resource "kubernetes_deployment" "laravel_http" {
           env_from {
             config_map_ref {
               name = kubernetes_config_map.laravel_config.metadata[0].name
+            }
+          }
+
+          env_from {
+            config_map_ref {
+              name = kubernetes_config_map.gcs_config.metadata[0].name
             }
           }
 
@@ -356,6 +391,12 @@ resource "kubernetes_deployment" "laravel_scheduler" {
             value = "scheduler"
           }
 
+          # Override GOOGLE_APPLICATION_CREDENTIALS for Workload Identity
+          env {
+            name  = "GOOGLE_APPLICATION_CREDENTIALS"
+            value = ""
+          }
+
           env_from {
             secret_ref {
               name = kubernetes_secret.laravel_secrets.metadata[0].name
@@ -365,6 +406,12 @@ resource "kubernetes_deployment" "laravel_scheduler" {
           env_from {
             config_map_ref {
               name = kubernetes_config_map.laravel_config.metadata[0].name
+            }
+          }
+
+          env_from {
+            config_map_ref {
+              name = kubernetes_config_map.gcs_config.metadata[0].name
             }
           }
 
@@ -462,6 +509,12 @@ resource "kubernetes_deployment" "laravel_horizon" {
             value = "horizon"
           }
 
+          # Override GOOGLE_APPLICATION_CREDENTIALS for Workload Identity
+          env {
+            name  = "GOOGLE_APPLICATION_CREDENTIALS"
+            value = ""
+          }
+
           env_from {
             secret_ref {
               name = kubernetes_secret.laravel_secrets.metadata[0].name
@@ -471,6 +524,12 @@ resource "kubernetes_deployment" "laravel_horizon" {
           env_from {
             config_map_ref {
               name = kubernetes_config_map.laravel_config.metadata[0].name
+            }
+          }
+
+          env_from {
+            config_map_ref {
+              name = kubernetes_config_map.gcs_config.metadata[0].name
             }
           }
 

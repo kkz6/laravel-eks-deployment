@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: laravel-gcs-test
+  namespace: laravel-app
+  labels:
+    app: laravel
+    test: gcs
+spec:
+  serviceAccountName: laravel  # This uses our Workload Identity service account
+  imagePullSecrets:
+  - name: github-registry-secret
+  containers:
+  - name: laravel-gcs
+    image: ghcr.io/zyoshu-inc/zyoshu-modular:latest
+    imagePullPolicy: Always
+    command: ['/bin/sh']
+    args: ['-c', 'sleep 3600']  # Keep container running for testing
+    env:
+    - name: CONTAINER_MODE
+      value: "http"
+    - name: OCTANE_SERVER
+      value: "frankenphp"
+    - name: REDIS_PASSWORD
+      value: "EB1zSGbJAiz10NoGLR6mwETjaoOsJgsMxHMTqZrT5II="
+    envFrom:
+    - secretRef:
+        name: laravel-secrets
+    - configMapRef:
+        name: laravel-config
+    - configMapRef:
+        name: gcs-config
+    resources:
+      requests:
+        memory: "256Mi"
+        cpu: "100m"
+      limits:
+        memory: "512Mi"
+        cpu: "500m"
+  restartPolicy: Never

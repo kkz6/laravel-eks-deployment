@@ -28,11 +28,12 @@ resource "google_project_iam_member" "laravel_gcs_storage_admin" {
 }
 
 # Additional permissions for multi-tenant bucket management
-resource "google_project_iam_member" "laravel_gcs_bucket_creator" {
-  project = var.project_id
-  role    = "roles/storage.buckets.create"
-  member  = "serviceAccount:${google_service_account.laravel_gcs_sa.email}"
-}
+# Note: roles/storage.admin already includes bucket creation permissions
+# resource "google_project_iam_member" "laravel_gcs_bucket_creator" {
+#   project = var.project_id
+#   role    = "roles/storage.buckets.create"
+#   member  = "serviceAccount:${google_service_account.laravel_gcs_sa.email}"
+# }
 
 # Service Usage Consumer to use GCS APIs
 resource "google_project_iam_member" "laravel_service_usage_consumer" {
@@ -51,6 +52,30 @@ resource "google_service_account_iam_member" "laravel_workload_identity" {
 }
 
 # --------------------------------------------------------------------------
+#  Service Account Token Creator (for bucket creation)
+# --------------------------------------------------------------------------
+resource "google_project_iam_member" "laravel_token_creator" {
+  project = var.project_id
+  role    = "roles/iam.serviceAccountTokenCreator"
+  member  = "serviceAccount:${google_service_account.laravel_gcs_sa.email}"
+}
+
+# --------------------------------------------------------------------------
+#  Document AI Permissions
+# --------------------------------------------------------------------------
+resource "google_project_iam_member" "laravel_documentai_user" {
+  project = var.project_id
+  role    = "roles/documentai.apiUser"
+  member  = "serviceAccount:${google_service_account.laravel_gcs_sa.email}"
+}
+
+resource "google_project_iam_member" "laravel_documentai_editor" {
+  project = var.project_id
+  role    = "roles/documentai.editor"
+  member  = "serviceAccount:${google_service_account.laravel_gcs_sa.email}"
+}
+
+# --------------------------------------------------------------------------
 #  Default GCS Bucket (Optional - for shared resources)
 # --------------------------------------------------------------------------
 # This bucket can be used for shared resources like app assets, logs, etc.
@@ -64,6 +89,9 @@ resource "google_storage_bucket" "laravel_shared_storage" {
   versioning {
     enabled = true
   }
+  
+  # Enable uniform bucket-level access (required by organization policy)
+  uniform_bucket_level_access = true
   
   # Lifecycle management
   lifecycle_rule {

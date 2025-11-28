@@ -43,12 +43,14 @@ spec:
               memory: "256Mi"
               cpu: "200m"
           # Simple liveness probe (scheduler doesn't serve HTTP)
+          # Check for supervisord instead of php since scheduler uses supercronic
+          # which only spawns PHP processes during cron runs
           livenessProbe:
             exec:
               command:
                 - /bin/sh
                 - -c
-                - "ps aux | grep -v grep | grep -q php"
+                - "ps aux | grep -v grep | grep -q supervisord"
             initialDelaySeconds: 120
             periodSeconds: 60
             timeoutSeconds: 10

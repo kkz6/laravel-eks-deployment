@@ -97,27 +97,28 @@ resource "google_container_cluster" "laravel_cluster" {
 }
 
 # --------------------------------------------------------------------------
-#  Primary Node Pool
+#  Primary Node Pool (Private Nodes with Cloud NAT)
 # --------------------------------------------------------------------------
-resource "google_container_node_pool" "laravel_nodes" {
-  name     = "laravel-nodes-${var.environment[local.env]}"
+resource "google_container_node_pool" "laravel_nodes_private" {
+  name     = "laravel-nodes-private"
   location = var.gcp_zone # Changed to single zone
   cluster  = google_container_cluster.laravel_cluster.name
 
   # Node count and autoscaling (environment-specific)
-  initial_node_count = 1 # Single node setup
+  initial_node_count = 3 # Three nodes for staging
 
   dynamic "autoscaling" {
     for_each = var.enable_autoscaling ? [1] : []
     content {
       min_node_count = 1
-      max_node_count = 1 # Single node setup - no scaling
+      max_node_count = 2 # Allow scaling between 1-2 nodes for staging
     }
   }
 
   # Node configuration
   node_config {
-    preemptible  = var.environment[local.env] == "prod" ? false : true
+    # Use spot instances (newer version of preemptible)
+    spot         = var.environment[local.env] == "prod" ? false : true
     machine_type = var.node_machine_type
     disk_size_gb = var.node_disk_size
     disk_type    = var.node_disk_type
@@ -130,7 +131,7 @@ resource "google_container_node_pool" "laravel_nodes" {
 
     # Labels for nodes
     labels = merge(local.labels, {
-      node_pool = "primary"
+      node_pool = "private"
     })
 
     # Tags for firewall rules
@@ -146,6 +147,16 @@ resource "google_container_node_pool" "laravel_nodes" {
       enable_secure_boot          = true
       enable_integrity_monitoring = true
     }
+
+    # Metadata
+    metadata = {
+      disable-legacy-endpoints = "true"
+    }
+  }
+
+  # Enable private nodes (no external IPs)
+  network_config {
+    enable_private_nodes = true
   }
 
   # Upgrade settings
@@ -162,7 +173,8 @@ resource "google_container_node_pool" "laravel_nodes" {
 
   depends_on = [
     google_container_cluster.laravel_cluster,
-    google_service_account.gke_nodes_sa
+    google_service_account.gke_nodes_sa,
+    google_compute_router_nat.nat_gateway
   ]
 }
 

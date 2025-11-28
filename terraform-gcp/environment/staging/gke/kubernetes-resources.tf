@@ -11,13 +11,27 @@
 # --------------------------------------------------------------------------
 #  Local Values for Database and Redis Connection
 # --------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+#  Data Sources for Cloud SQL Database Info
+# --------------------------------------------------------------------------
+data "terraform_remote_state" "cloud_sql" {
+  backend = "gcs"
+  config = {
+    bucket = "zyoshu-terraform-state-staging"
+    prefix = "cloud-sql/terraform.tfstate"
+  }
+  workspace = "staging"
+}
+
 locals {
-  # Use variables for database connection (will be provided via terraform.tfvars)
-  db_host     = var.db_host
-  db_password = var.db_password
-  db_user     = var.db_user
-  db_name     = var.db_name
-  redis_host  = google_compute_instance.redis_vm.network_interface[0].network_ip
+  # Get database connection info from Cloud SQL remote state
+  db_host     = try(data.terraform_remote_state.cloud_sql.outputs.database_host, var.db_host)
+  db_password = try(data.terraform_remote_state.cloud_sql.outputs.database_password, var.db_password)
+  db_user     = try(data.terraform_remote_state.cloud_sql.outputs.database_user, var.db_user)
+  db_name     = try(data.terraform_remote_state.cloud_sql.outputs.database_name, var.db_name)
+  # Use Kubernetes Redis service instead of VM (more reliable)
+  # Redis is in separate namespace to avoid restarts when updating Laravel deployments
+  redis_host = "redis-service.redis-system.svc.cluster.local"
 }
 
 # --------------------------------------------------------------------------
@@ -33,7 +47,7 @@ resource "kubernetes_namespace" "laravel_app" {
     }
   }
 
-  depends_on = [google_container_node_pool.laravel_nodes]
+  depends_on = [google_container_node_pool.laravel_nodes_private]
 }
 
 # --------------------------------------------------------------------------
@@ -54,10 +68,10 @@ resource "kubernetes_secret" "laravel_secrets" {
     DB_USERNAME   = local.db_user
     DB_PASSWORD   = local.db_password
 
-    # Redis configuration
+    # Redis configuration (using in-cluster Redis pod)
     REDIS_HOST     = local.redis_host
     REDIS_PORT     = "6379"
-    REDIS_PASSWORD = var.redis_password != "" ? var.redis_password : random_password.redis_password[0].result
+    REDIS_PASSWORD = var.redis_password
 
     # Laravel configuration
     APP_KEY = var.app_key
@@ -70,8 +84,7 @@ resource "kubernetes_secret" "laravel_secrets" {
   type = "Opaque"
 
   depends_on = [
-    kubernetes_namespace.laravel_app,
-    google_compute_instance.redis_vm
+    kubernetes_namespace.laravel_app
   ]
 }
 
@@ -118,6 +131,12 @@ resource "kubernetes_config_map" "laravel_config" {
     LOG_CHANNEL = "stderr"
     TZ          = "UTC"
 
+    # Trust configuration for Kubernetes/GKE environment
+    # Note: TRUST_PROXIES="*" causes regex compilation error in Symfony Request class
+    # Use specific IP ranges instead
+    TRUST_HOSTS   = "false"
+    TRUST_PROXIES = "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+
     # Multi-tenant configuration
     BASE_DOMAIN            = var.base_domain
     CENTRAL_DOMAIN         = var.central_domain
@@ -162,6 +181,29 @@ resource "kubernetes_config_map" "laravel_config" {
     VITE_REVERB_HOST     = var.base_domain
     VITE_REVERB_PORT     = "443"
     VITE_REVERB_SCHEME   = "https"
+  }
+
+  depends_on = [kubernetes_namespace.laravel_app]
+}
+
+# --------------------------------------------------------------------------
+#  GCS ConfigMap
+# --------------------------------------------------------------------------
+resource "kubernetes_config_map" "gcs_config" {
+  metadata {
+    name      = "gcs-config"
+    namespace = kubernetes_namespace.laravel_app.metadata[0].name
+  }
+
+  data = {
+    GOOGLE_CLOUD_PROJECT_ID           = var.project_id
+    GOOGLE_CLOUD_STORAGE_BUCKET       = "${var.project_id}-laravel-shared-${var.environment[local.env]}"
+    GCS_BUCKET_PREFIX                 = "tenant"
+    GCS_BUCKET_LOCATION               = var.gcs_bucket_location
+    GCS_STORAGE_CLASS                 = var.gcs_storage_class
+    GOOGLE_CLOUD_STORAGE_PATH_PREFIX  = ""
+    GOOGLE_CLOUD_STORAGE_API_URI      = ""
+    GOOGLE_CLOUD_STORAGE_API_ENDPOINT = ""
   }
 
   depends_on = [kubernetes_namespace.laravel_app]
@@ -251,6 +293,12 @@ resource "kubernetes_deployment" "laravel_http" {
             value = "frankenphp"
           }
 
+          # Override GOOGLE_APPLICATION_CREDENTIALS for Workload Identity
+          env {
+            name  = "GOOGLE_APPLICATION_CREDENTIALS"
+            value = ""
+          }
+
           env_from {
             secret_ref {
               name = kubernetes_secret.laravel_secrets.metadata[0].name
@@ -263,21 +311,32 @@ resource "kubernetes_deployment" "laravel_http" {
             }
           }
 
+          env_from {
+            config_map_ref {
+              name = kubernetes_config_map.gcs_config.metadata[0].name
+            }
+          }
+
           resources {
             requests = {
-              memory = "512Mi"
-              cpu    = "250m"
+              memory = "256Mi"
+              cpu    = "50m"
             }
             limits = {
-              memory = "2Gi"
-              cpu    = "1000m"
+              memory = "1Gi"
+              cpu    = "300m"
             }
           }
 
           liveness_probe {
             http_get {
-              path = "/health"
-              port = var.frankenphp_port
+              path   = "/health"
+              port   = var.frankenphp_port
+              scheme = "HTTP"
+              http_header {
+                name  = "Host"
+                value = var.base_domain
+              }
             }
             initial_delay_seconds = 60
             period_seconds        = 30
@@ -287,8 +346,13 @@ resource "kubernetes_deployment" "laravel_http" {
 
           readiness_probe {
             http_get {
-              path = "/health"
-              port = var.frankenphp_port
+              path   = "/health"
+              port   = var.frankenphp_port
+              scheme = "HTTP"
+              http_header {
+                name  = "Host"
+                value = var.base_domain
+              }
             }
             initial_delay_seconds = 30
             period_seconds        = 10
@@ -371,6 +435,12 @@ resource "kubernetes_deployment" "laravel_scheduler" {
             value = "scheduler"
           }
 
+          # Override GOOGLE_APPLICATION_CREDENTIALS for Workload Identity
+          env {
+            name  = "GOOGLE_APPLICATION_CREDENTIALS"
+            value = ""
+          }
+
           env_from {
             secret_ref {
               name = kubernetes_secret.laravel_secrets.metadata[0].name
@@ -383,13 +453,19 @@ resource "kubernetes_deployment" "laravel_scheduler" {
             }
           }
 
+          env_from {
+            config_map_ref {
+              name = kubernetes_config_map.gcs_config.metadata[0].name
+            }
+          }
+
           resources {
             requests = {
-              memory = "64Mi"
-              cpu    = "50m"
+              memory = "128Mi"
+              cpu    = "25m"
             }
             limits = {
-              memory = "128Mi"
+              memory = "512Mi"
               cpu    = "200m"
             }
           }
@@ -477,6 +553,12 @@ resource "kubernetes_deployment" "laravel_horizon" {
             value = "horizon"
           }
 
+          # Override GOOGLE_APPLICATION_CREDENTIALS for Workload Identity
+          env {
+            name  = "GOOGLE_APPLICATION_CREDENTIALS"
+            value = ""
+          }
+
           env_from {
             secret_ref {
               name = kubernetes_secret.laravel_secrets.metadata[0].name
@@ -489,13 +571,19 @@ resource "kubernetes_deployment" "laravel_horizon" {
             }
           }
 
+          env_from {
+            config_map_ref {
+              name = kubernetes_config_map.gcs_config.metadata[0].name
+            }
+          }
+
           resources {
             requests = {
-              memory = "64Mi"
-              cpu    = "50m"
+              memory = "128Mi"
+              cpu    = "25m"
             }
             limits = {
-              memory = "128Mi"
+              memory = "512Mi"
               cpu    = "200m"
             }
           }
@@ -715,10 +803,162 @@ resource "kubernetes_service" "laravel_http_service" {
       protocol    = "TCP"
     }
 
-    type = "ClusterIP"
+    type = "NodePort"
   }
 
   depends_on = [kubernetes_deployment.laravel_http]
+}
+
+# --------------------------------------------------------------------------
+#  Backend Config for GCE Ingress (File Upload Support)
+# --------------------------------------------------------------------------
+resource "kubectl_manifest" "laravel_backend_config" {
+  yaml_body = <<YAML
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: laravel-backend-config
+  namespace: ${kubernetes_namespace.laravel_app.metadata[0].name}
+spec:
+  # Timeout configuration for file uploads (5 minutes)
+  timeoutSec: 300
+  
+  # Connection draining
+  connectionDraining:
+    drainingTimeoutSec: 60
+  
+  # Enable logging
+  logging:
+    enable: true
+    sampleRate: 1.0
+  
+  # Custom health check
+  healthCheck:
+    checkIntervalSec: 30
+    timeoutSec: 10
+    healthyThreshold: 2
+    unhealthyThreshold: 3
+    type: HTTP
+    requestPath: /health
+    port: 8000
+  
+  # Session affinity for consistent routing (helpful for file uploads)
+  sessionAffinity:
+    affinityType: "CLIENT_IP"
+    affinityCookieTtlSec: 3600
+YAML
+
+  depends_on = [kubernetes_namespace.laravel_app]
+}
+
+# --------------------------------------------------------------------------
+#  Redis Namespace (Separate from Laravel to avoid accidental restarts)
+# --------------------------------------------------------------------------
+resource "kubernetes_namespace" "redis_system" {
+  metadata {
+    name = "redis-system"
+    labels = {
+      name        = "redis-system"
+      environment = var.environment[local.env]
+      project     = "laravel-gcp-deployment"
+      component   = "cache"
+    }
+  }
+
+  depends_on = [google_container_node_pool.laravel_nodes_private]
+}
+
+# --------------------------------------------------------------------------
+#  Redis Deployment (Kubernetes-based instead of VM)
+# --------------------------------------------------------------------------
+resource "kubernetes_deployment" "redis" {
+  metadata {
+    name      = "redis"
+    namespace = kubernetes_namespace.redis_system.metadata[0].name
+    labels = {
+      app       = "redis"
+      component = "cache"
+    }
+  }
+
+  spec {
+    replicas = 1
+    selector {
+      match_labels = {
+        app = "redis"
+      }
+    }
+
+    template {
+      metadata {
+        labels = {
+          app       = "redis"
+          component = "cache"
+        }
+      }
+      spec {
+        container {
+          name  = "redis"
+          image = "redis:7.0-alpine"
+          port {
+            container_port = 6379
+          }
+          env {
+            name = "REDIS_PASSWORD"
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret.laravel_secrets.metadata[0].name
+                key  = "REDIS_PASSWORD"
+              }
+            }
+          }
+          command = ["redis-server"]
+          args    = ["--requirepass", "$(REDIS_PASSWORD)", "--bind", "0.0.0.0"]
+
+          resources {
+            requests = {
+              memory = "64Mi"
+              cpu    = "50m"
+            }
+            limits = {
+              memory = "256Mi"
+              cpu    = "200m"
+            }
+          }
+        }
+      }
+    }
+  }
+
+  depends_on = [kubernetes_secret.laravel_secrets]
+}
+
+# --------------------------------------------------------------------------
+#  Redis Service
+# --------------------------------------------------------------------------
+resource "kubernetes_service" "redis_service" {
+  metadata {
+    name      = "redis-service"
+    namespace = kubernetes_namespace.redis_system.metadata[0].name
+    labels = {
+      app       = "redis"
+      component = "cache"
+    }
+  }
+
+  spec {
+    selector = {
+      app = "redis"
+    }
+    port {
+      port        = 6379
+      target_port = 6379
+      protocol    = "TCP"
+    }
+    type = "ClusterIP"
+  }
+
+  depends_on = [kubernetes_deployment.redis]
 }
 
 # --------------------------------------------------------------------------
@@ -868,21 +1108,23 @@ resource "kubernetes_ingress_v1" "laravel_ingress" {
     annotations = {
       "kubernetes.io/ingress.class"                 = "gce"
       "kubernetes.io/ingress.global-static-ip-name" = "laravel-ip-${var.environment[local.env]}"
-      # "cert-manager.io/cluster-issuer"            = "letsencrypt-prod"  # Not needed - Cloudflare handles SSL
-      "kubernetes.io/ingress.allow-http" = "true"
-      # "nginx.ingress.kubernetes.io/ssl-redirect"  = "true"  # Let Cloudflare handle SSL redirect
+      "kubernetes.io/ingress.allow-http"            = "true"
+      # SSL/TLS handled by Cloudflare - no need for managed certificates
     }
   }
 
   spec {
-    # TLS handled by Cloudflare - no need for in-cluster certificates
-    # tls {
-    #   hosts = [
-    #     "${var.app_subdomain}.${var.base_domain}",
-    #     "*.${var.app_subdomain}.${var.base_domain}"
-    #   ]
-    #   secret_name = "wildcard-${var.app_subdomain}-tls-secret"
-    # }
+    # TLS handled by Cloudflare - ingress serves HTTP only
+
+    # Default backend to handle all unmatched hosts (including wildcard subdomains)
+    default_backend {
+      service {
+        name = kubernetes_service.laravel_http_service.metadata[0].name
+        port {
+          number = 80
+        }
+      }
+    }
 
     rule {
       host = var.app_subdomain != "" ? "${var.app_subdomain}.${var.base_domain}" : var.base_domain
@@ -947,6 +1189,29 @@ resource "kubernetes_ingress_v1" "laravel_ingress" {
         }
       }
     }
+    # Note: Kubernetes Ingress doesn't support true wildcards like *.domain.com
+    # Using default backend instead to handle all subdomains
+    # The default backend above will route all unmatched hosts to Laravel
+    # Laravel's tenant routing middleware handles subdomain routing
+
+    # Example: Explicit subdomain rules (optional, handled by default backend)
+    # rule {
+    #   host = "demo.${var.base_domain}"
+    #   http {
+    #     path {
+    #       path      = "/"
+    #       path_type = "Prefix"
+    #       backend {
+    #         service {
+    #           name = kubernetes_service.laravel_http_service.metadata[0].name
+    #           port {
+    #             number = 80
+    #           }
+    #         }
+    #       }
+    #     }
+    #   }
+    # }
   }
 
   depends_on = [

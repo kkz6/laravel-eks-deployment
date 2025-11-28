@@ -1,0 +1,110 @@
+# ==========================================================================
+#  Kubernetes Resources for GCS Multi-Tenant Setup
+# ==========================================================================
+
+---
+# Namespace
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: laravel-app
+  labels:
+    name: laravel-app
+    environment: staging
+    project: laravel-gcp-deployment
+
+---
+# Service Account with Workload Identity
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: laravel
+  namespace: laravel-app
+  annotations:
+    iam.gke.io/gcp-service-account: laravel-gcs-stg@zyoshu-test.iam.gserviceaccount.com
+  labels:
+    app: laravel
+    environment: staging
+
+---
+# ConfigMap with GCS Configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gcs-config
+  namespace: laravel-app
+data:
+  GOOGLE_CLOUD_PROJECT_ID: 'zyoshu-test'
+  GOOGLE_CLOUD_STORAGE_BUCKET: 'zyoshu-test-laravel-shared-stg'
+  GCS_BUCKET_PREFIX: 'tenant'
+  GCS_BUCKET_LOCATION: 'US'
+  GCS_STORAGE_CLASS: 'STANDARD'
+  GOOGLE_CLOUD_STORAGE_PATH_PREFIX: ''
+  GOOGLE_CLOUD_STORAGE_API_URI: ''
+  GOOGLE_CLOUD_STORAGE_API_ENDPOINT: ''
+
+---
+# Test Pod for GCS Access Verification
+apiVersion: v1
+kind: Pod
+metadata:
+  name: gcs-test
+  namespace: laravel-app
+spec:
+  serviceAccountName: laravel
+  containers:
+  - name: gcs-test
+    image: google/cloud-sdk:alpine
+    command: ['/bin/sh']
+    args: ['-c', 'sleep 3600']
+    envFrom:
+    - configMapRef:
+        name: gcs-config
+    env:
+    - name: GOOGLE_CLOUD_PROJECT_ID
+      value: 'zyoshu-test'
+  restartPolicy: Never
+
+---
+# Laravel Application Pod with your Docker image
+apiVersion: v1
+kind: Pod
+metadata:
+  name: laravel-app-test
+  namespace: laravel-app
+  labels:
+    app: laravel
+    mode: http
+spec:
+  serviceAccountName: laravel
+  imagePullSecrets:
+  - name: github-registry-secret
+  containers:
+  - name: laravel-http
+    image: ghcr.io/zyoshu-inc/zyoshu-modular:latest
+    imagePullPolicy: Always
+    ports:
+    - containerPort: 8000
+      name: http
+    env:
+    - name: CONTAINER_MODE
+      value: "http"
+    - name: OCTANE_SERVER
+      value: "frankenphp"
+    - name: REDIS_PASSWORD
+      value: "EB1zSGbJAiz10NoGLR6mwETjaoOsJgsMxHMTqZrT5II="
+    envFrom:
+    - secretRef:
+        name: laravel-secrets
+    - configMapRef:
+        name: laravel-config
+    - configMapRef:
+        name: gcs-config
+    resources:
+      requests:
+        memory: "512Mi"
+        cpu: "250m"
+      limits:
+        memory: "2Gi"
+        cpu: "1000m"
+  restartPolicy: Never

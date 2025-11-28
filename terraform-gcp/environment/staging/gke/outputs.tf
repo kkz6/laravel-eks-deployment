@@ -32,35 +32,6 @@ output "cluster_location" {
 }
 
 # --------------------------------------------------------------------------
-#  Redis VM Outputs
-# --------------------------------------------------------------------------
-output "redis_vm_name" {
-  description = "Redis VM instance name"
-  value       = google_compute_instance.redis_vm.name
-}
-
-output "redis_internal_ip" {
-  description = "Redis VM internal IP address"
-  value       = google_compute_instance.redis_vm.network_interface[0].network_ip
-}
-
-output "redis_external_ip" {
-  description = "Redis VM external IP address (for setup only)"
-  value       = google_compute_instance.redis_vm.network_interface[0].access_config[0].nat_ip
-}
-
-output "redis_connection_string" {
-  description = "Redis connection string for Kubernetes"
-  value       = "${google_compute_instance.redis_vm.network_interface[0].network_ip}:6379"
-}
-
-output "redis_password" {
-  description = "Redis authentication password"
-  value       = var.redis_password != "" ? var.redis_password : random_password.redis_password[0].result
-  sensitive   = true
-}
-
-# --------------------------------------------------------------------------
 #  Kubernetes Configuration
 # --------------------------------------------------------------------------
 output "kubectl_config_command" {
@@ -81,24 +52,23 @@ output "gke_service_account_email" {
   value       = google_service_account.gke_nodes_sa.email
 }
 
-output "redis_service_account_email" {
-  description = "Redis VM service account email"
-  value       = google_service_account.redis_vm_sa.email
-}
-
 # --------------------------------------------------------------------------
 #  Deployment Information
 # --------------------------------------------------------------------------
 output "deployment_architecture" {
-  description = "Summary of hybrid deployment architecture"
+  description = "Summary of deployment architecture"
   value = {
     database   = "Cloud SQL (managed)"
-    redis      = "VM-based (cost-effective)"
-    kubernetes = "GKE (container orchestration)"
+    redis      = "Kubernetes pod (in-cluster)"
+    kubernetes = "GKE (container orchestration with private nodes)"
     containers = {
       http      = "Auto-scaling pods"
       scheduler = "Single pod (no scaling)"
       horizon   = "Auto-scaling workers"
+    }
+    networking = {
+      node_type   = "Private nodes (no external IPs)"
+      outbound_ip = "Cloud NAT (single static IP)"
     }
   }
 }
@@ -137,7 +107,26 @@ output "next_steps" {
     step_2 = "Check pods: kubectl get pods -n laravel-app"
     step_3 = "Configure Cloudflare DNS with IP: ${google_compute_global_address.laravel_ingress_ip.address}"
     step_4 = "Test application: https://${var.app_subdomain}.${var.base_domain}"
+    step_5 = "Verify NAT IP for outbound requests: ${google_compute_address.nat_ip.address}"
   }
+}
+
+# --------------------------------------------------------------------------
+#  Cloud NAT Outputs
+# --------------------------------------------------------------------------
+output "nat_external_ip" {
+  description = "Static external IP address used by Cloud NAT for outbound connections"
+  value       = google_compute_address.nat_ip.address
+}
+
+output "nat_router_name" {
+  description = "Cloud Router name for NAT gateway"
+  value       = google_compute_router.nat_router.name
+}
+
+output "nat_gateway_name" {
+  description = "Cloud NAT gateway name"
+  value       = google_compute_router_nat.nat_gateway.name
 }
 
 # --------------------------------------------------------------------------

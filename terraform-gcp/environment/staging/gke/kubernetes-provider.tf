@@ -18,7 +18,7 @@ data "google_container_cluster" "gke_cluster" {
 
   depends_on = [
     google_container_cluster.laravel_cluster,
-    google_container_node_pool.laravel_nodes
+    google_container_node_pool.laravel_nodes_private
   ]
 }
 

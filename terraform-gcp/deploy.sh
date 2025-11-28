@@ -449,7 +449,7 @@ if [[ ! "$ACTION" =~ ^(plan|apply|destroy|refresh)$ ]]; then
 fi
 
 # Set GCP zone based on region
-GCP_ZONE="${GCP_REGION:-us-central1}-a"
+GCP_ZONE="${GCP_REGION:-asia-northeast1}-a"
 
 # Main execution
 print_header
