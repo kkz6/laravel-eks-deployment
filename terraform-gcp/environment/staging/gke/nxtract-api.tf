@@ -157,11 +157,11 @@ resource "kubernetes_deployment" "nxtract_api" {
 
           resources {
             requests = {
-              memory = "256Mi"
+              memory = "512Mi"
               cpu    = "25m"
             }
             limits = {
-              memory = "1Gi"
+              memory = "2Gi"
               cpu    = "200m"
             }
           }
