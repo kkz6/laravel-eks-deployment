@@ -495,3 +495,16 @@ variable "nxtract_api_image" {
   description = "Docker image for Nxtract PDF extraction API"
   default     = "ghcr.io/zyoshu-inc/nxtract-api:latest"
 }
+
+variable "nxtract_openai_api_key" {
+  type        = string
+  description = "OpenAI API key for Nxtract API"
+  sensitive   = true
+  default     = ""
+}
+
+variable "nxtract_mode" {
+  type        = string
+  description = "Nxtract processing mode (fast or accurate)"
+  default     = "fast"
+}

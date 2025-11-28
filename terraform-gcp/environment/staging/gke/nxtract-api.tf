@@ -52,6 +52,40 @@ resource "kubernetes_secret" "nxtract_github_registry_secret" {
 }
 
 # --------------------------------------------------------------------------
+#  Nxtract API Secrets (sensitive data)
+# --------------------------------------------------------------------------
+resource "kubernetes_secret" "nxtract_secrets" {
+  metadata {
+    name      = "nxtract-secrets"
+    namespace = kubernetes_namespace.nxtract_api.metadata[0].name
+  }
+
+  data = {
+    OPENAI_API_KEY = var.nxtract_openai_api_key
+  }
+
+  type = "Opaque"
+
+  depends_on = [kubernetes_namespace.nxtract_api]
+}
+
+# --------------------------------------------------------------------------
+#  Nxtract API ConfigMap (non-sensitive configuration)
+# --------------------------------------------------------------------------
+resource "kubernetes_config_map" "nxtract_config" {
+  metadata {
+    name      = "nxtract-config"
+    namespace = kubernetes_namespace.nxtract_api.metadata[0].name
+  }
+
+  data = {
+    NXTRACT_MODE = var.nxtract_mode
+  }
+
+  depends_on = [kubernetes_namespace.nxtract_api]
+}
+
+# --------------------------------------------------------------------------
 #  Nxtract API Deployment
 # --------------------------------------------------------------------------
 resource "kubernetes_deployment" "nxtract_api" {
@@ -109,6 +143,18 @@ resource "kubernetes_deployment" "nxtract_api" {
             value = "1"
           }
 
+          env_from {
+            secret_ref {
+              name = kubernetes_secret.nxtract_secrets.metadata[0].name
+            }
+          }
+
+          env_from {
+            config_map_ref {
+              name = kubernetes_config_map.nxtract_config.metadata[0].name
+            }
+          }
+
           resources {
             requests = {
               memory = "128Mi"
@@ -150,6 +196,8 @@ resource "kubernetes_deployment" "nxtract_api" {
 
   depends_on = [
     kubernetes_secret.nxtract_github_registry_secret,
+    kubernetes_secret.nxtract_secrets,
+    kubernetes_config_map.nxtract_config,
     kubernetes_namespace.nxtract_api
   ]
 }
