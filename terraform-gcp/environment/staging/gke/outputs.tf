@@ -91,13 +91,30 @@ output "kubernetes_resources" {
   value = {
     namespace = kubernetes_namespace.laravel_app.metadata[0].name
     deployments = {
-      http      = kubernetes_deployment.laravel_http.metadata[0].name
-      scheduler = kubernetes_deployment.laravel_scheduler.metadata[0].name
-      horizon   = kubernetes_deployment.laravel_horizon.metadata[0].name
+      http       = kubernetes_deployment.laravel_http.metadata[0].name
+      scheduler  = kubernetes_deployment.laravel_scheduler.metadata[0].name
+      horizon    = kubernetes_deployment.laravel_horizon.metadata[0].name
+      nxtract    = kubernetes_deployment.nxtract_api.metadata[0].name
     }
-    service = kubernetes_service.laravel_http_service.metadata[0].name
+    services = {
+      http    = kubernetes_service.laravel_http_service.metadata[0].name
+      nxtract = kubernetes_service.nxtract_api_service.metadata[0].name
+    }
     ingress = kubernetes_ingress_v1.laravel_ingress.metadata[0].name
   }
+}
+
+# --------------------------------------------------------------------------
+#  Nxtract API Outputs
+# --------------------------------------------------------------------------
+output "nxtract_api_internal_url" {
+  description = "Internal Kubernetes URL for Nxtract API (use this in Laravel app)"
+  value       = "http://nxtract-api-service.nxtract-api.svc.cluster.local"
+}
+
+output "nxtract_api_namespace" {
+  description = "Kubernetes namespace for Nxtract API"
+  value       = kubernetes_namespace.nxtract_api.metadata[0].name
 }
 
 output "next_steps" {

@@ -487,4 +487,11 @@ variable "allowed_ssh_ranges" {
   default     = ["0.0.0.0/0"]
 }
 
-
+# ------------------------------------
+#  Nxtract API Configuration
+# ------------------------------------
+variable "nxtract_api_image" {
+  type        = string
+  description = "Docker image for Nxtract PDF extraction API"
+  default     = "ghcr.io/zyoshu-inc/nxtract-api:latest"
+}

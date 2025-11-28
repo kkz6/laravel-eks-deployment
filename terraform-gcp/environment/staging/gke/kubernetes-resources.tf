@@ -147,7 +147,8 @@ resource "kubernetes_config_map" "laravel_config" {
     QUEUE_CONNECTION = "redis"
 
     # Document AI configuration
-    DOC_EXTRACT_API_URL                = var.doc_extract_api_url
+    # Use internal Kubernetes service URL for nxtract-api (separate namespace)
+    DOC_EXTRACT_API_URL                = "http://nxtract-api-service.nxtract-api.svc.cluster.local"
     GCP_PROJECT_ID                     = var.gcp_project_id
     GOOGLE_APPLICATION_CREDENTIALS     = var.google_application_credentials
     DOCUMENT_AI_SPLITTING_PROCESSOR_ID = var.document_ai_splitting_processor_id
