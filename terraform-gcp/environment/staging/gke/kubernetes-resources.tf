@@ -147,6 +147,21 @@ resource "kubernetes_config_map" "laravel_config" {
 
     # Migration configuration (for first deployment)
     RUNNING_MIGRATIONS_AND_SEEDERS = var.run_migrations ? "true" : ""
+
+    # Reverb WebSocket Configuration
+    BROADCAST_CONNECTION = "reverb"
+    REVERB_APP_ID        = var.reverb_app_id
+    REVERB_APP_KEY       = var.reverb_app_key
+    REVERB_APP_SECRET    = var.reverb_app_secret
+    REVERB_HOST          = var.base_domain # Base domain for multi-tenant
+    REVERB_PORT          = "443"           # External port (through Cloudflare)
+    REVERB_SCHEME        = "https"
+    REVERB_SERVER_HOST   = "0.0.0.0" # Internal: listen on all interfaces
+    REVERB_SERVER_PORT   = "8080"    # Internal: Reverb server port
+    VITE_REVERB_APP_KEY  = var.reverb_app_key
+    VITE_REVERB_HOST     = var.base_domain
+    VITE_REVERB_PORT     = "443"
+    VITE_REVERB_SCHEME   = "https"
   }
 
   depends_on = [kubernetes_namespace.laravel_app]
@@ -517,6 +532,160 @@ resource "kubernetes_deployment" "laravel_horizon" {
 }
 
 # --------------------------------------------------------------------------
+#  Laravel Reverb Deployment (WebSocket Server)
+# --------------------------------------------------------------------------
+resource "kubernetes_deployment" "laravel_reverb" {
+  metadata {
+    name      = "laravel-reverb"
+    namespace = kubernetes_namespace.laravel_app.metadata[0].name
+    labels = {
+      app       = "laravel-reverb"
+      component = "websocket"
+      mode      = "reverb"
+    }
+  }
+
+  spec {
+    replicas = 1
+
+    selector {
+      match_labels = {
+        app  = "laravel-reverb"
+        mode = "reverb"
+      }
+    }
+
+    template {
+      metadata {
+        labels = {
+          app       = "laravel-reverb"
+          mode      = "reverb"
+          component = "websocket"
+        }
+      }
+
+      spec {
+        service_account_name = kubernetes_service_account.laravel_service_account.metadata[0].name
+
+        image_pull_secrets {
+          name = kubernetes_secret.github_registry_secret.metadata[0].name
+        }
+
+        container {
+          name              = "laravel-reverb"
+          image             = var.docker_image
+          image_pull_policy = "Always"
+
+          port {
+            container_port = 8080
+            name           = "websocket"
+          }
+
+          env {
+            name  = "CONTAINER_MODE"
+            value = "reverb"
+          }
+
+          env_from {
+            secret_ref {
+              name = kubernetes_secret.laravel_secrets.metadata[0].name
+            }
+          }
+
+          env_from {
+            config_map_ref {
+              name = kubernetes_config_map.laravel_config.metadata[0].name
+            }
+          }
+
+          resources {
+            requests = {
+              memory = "64Mi"
+              cpu    = "50m"
+            }
+            limits = {
+              memory = "256Mi"
+              cpu    = "200m"
+            }
+          }
+
+          liveness_probe {
+            tcp_socket {
+              port = 8080
+            }
+            initial_delay_seconds = 30
+            period_seconds        = 30
+            timeout_seconds       = 5
+            failure_threshold     = 3
+          }
+
+          readiness_probe {
+            tcp_socket {
+              port = 8080
+            }
+            initial_delay_seconds = 10
+            period_seconds        = 10
+            timeout_seconds       = 5
+            failure_threshold     = 3
+          }
+
+          volume_mount {
+            name       = "laravel-storage"
+            mount_path = "/app/storage"
+          }
+        }
+
+        volume {
+          name = "laravel-storage"
+          empty_dir {}
+        }
+      }
+    }
+  }
+
+  depends_on = [
+    kubernetes_secret.laravel_secrets,
+    kubernetes_secret.github_registry_secret,
+    kubernetes_config_map.laravel_config
+  ]
+}
+
+# --------------------------------------------------------------------------
+#  Laravel Reverb Service (WebSocket)
+# --------------------------------------------------------------------------
+resource "kubernetes_service" "laravel_reverb_service" {
+  metadata {
+    name      = "laravel-reverb-service"
+    namespace = kubernetes_namespace.laravel_app.metadata[0].name
+    labels = {
+      app       = "laravel-reverb"
+      component = "websocket"
+    }
+    annotations = {
+      "cloud.google.com/neg" = jsonencode({ ingress = true })
+    }
+  }
+
+  spec {
+    selector = {
+      app  = "laravel-reverb"
+      mode = "reverb"
+    }
+
+    port {
+      name        = "websocket"
+      port        = 8080
+      target_port = 8080
+      protocol    = "TCP"
+    }
+
+    type = "NodePort" # Required for GCE Ingress
+  }
+
+  depends_on = [kubernetes_deployment.laravel_reverb]
+}
+
+# --------------------------------------------------------------------------
 #  Laravel HTTP Service
 # --------------------------------------------------------------------------
 resource "kubernetes_service" "laravel_http_service" {
@@ -718,6 +887,20 @@ resource "kubernetes_ingress_v1" "laravel_ingress" {
     rule {
       host = var.app_subdomain != "" ? "${var.app_subdomain}.${var.base_domain}" : var.base_domain
       http {
+        # Route WebSocket connections to Reverb service
+        path {
+          path      = "/app"
+          path_type = "Prefix"
+          backend {
+            service {
+              name = kubernetes_service.laravel_reverb_service.metadata[0].name
+              port {
+                number = 8080
+              }
+            }
+          }
+        }
+        # Route all other traffic to HTTP service
         path {
           path      = "/"
           path_type = "Prefix"
@@ -736,6 +919,20 @@ resource "kubernetes_ingress_v1" "laravel_ingress" {
     rule {
       host = "*.${var.base_domain}" # Tenants use subdomains like tenant1.zyoshu-test.com
       http {
+        # Route WebSocket connections to Reverb service
+        path {
+          path      = "/app"
+          path_type = "Prefix"
+          backend {
+            service {
+              name = kubernetes_service.laravel_reverb_service.metadata[0].name
+              port {
+                number = 8080
+              }
+            }
+          }
+        }
+        # Route all other traffic to HTTP service
         path {
           path      = "/"
           path_type = "Prefix"
@@ -753,7 +950,8 @@ resource "kubernetes_ingress_v1" "laravel_ingress" {
   }
 
   depends_on = [
-    kubernetes_service.laravel_http_service
+    kubernetes_service.laravel_http_service,
+    kubernetes_service.laravel_reverb_service
   ]
 }
 

@@ -433,4 +433,26 @@ variable "laravel_service_account_name" {
   default     = "laravel"
 }
 
+# ------------------------------------
+#  Reverb WebSocket Configuration
+# ------------------------------------
+variable "reverb_app_id" {
+  type        = string
+  description = "Reverb application ID"
+  default     = "255221"
+}
+
+variable "reverb_app_key" {
+  type        = string
+  description = "Reverb application key"
+  default     = "nfjdlwdxmygcwltkegvs"
+}
+
+variable "reverb_app_secret" {
+  type        = string
+  description = "Reverb application secret"
+  sensitive   = true
+  default     = "drhviies1eg7xc7etem4"
+}
+
 

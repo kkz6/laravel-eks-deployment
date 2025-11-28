@@ -1,0 +1,90 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: laravel-reverb
+  namespace: laravel-app
+  labels:
+    app: laravel-reverb
+    component: websocket
+    mode: reverb
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: laravel-reverb
+      mode: reverb
+  template:
+    metadata:
+      labels:
+        app: laravel-reverb
+        mode: reverb
+        component: websocket
+    spec:
+      serviceAccountName: laravel
+      imagePullSecrets:
+        - name: github-registry-secret
+      containers:
+        - name: laravel-reverb
+          image: ghcr.io/zyoshu-inc/zyoshu-modular:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: websocket
+          env:
+            - name: CONTAINER_MODE
+              value: "reverb"
+          envFrom:
+            - secretRef:
+                name: laravel-secrets
+            - configMapRef:
+                name: laravel-config
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "50m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          volumeMounts:
+            - name: laravel-storage
+              mountPath: /app/storage
+      volumes:
+        - name: laravel-storage
+          emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: laravel-reverb-service
+  namespace: laravel-app
+  labels:
+    app: laravel-reverb
+    component: websocket
+  annotations:
+    cloud.google.com/neg: '{"ingress": true}'
+spec:
+  selector:
+    app: laravel-reverb
+    mode: reverb
+  ports:
+    - name: websocket
+      port: 8080
+      targetPort: 8080
+      protocol: TCP
+  type: NodePort # Required for GCE Ingress
+
